@@ -12,7 +12,7 @@ app.get("/health", (req, res) => {
     res.json({ status: "ok", Message: "Aegis Backend is running smoothly!"});})
 
 app.use("/api/auth", authRoutes);
-app.use("/api/chats,", chatRoutes);
+app.use("/api/chats", chatRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
 

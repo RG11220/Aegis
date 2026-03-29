@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IChat extends Document {
-    participantIds: string[]; // Changed from ObjectId[] to string[]
+    participantIds: string[]; 
     lastMessage?: mongoose.Types.ObjectId;
     lastMessageAt?: Date; 
     createdAt: Date;
@@ -10,7 +10,20 @@ export interface IChat extends Document {
 
 const ChatSchema = new Schema<IChat>(
     { 
-        participantIds: [{ type: String, required: true }], 
+        participantIds: {
+            type: [String],
+            required: true,
+            validate: [
+                {
+                    validator: (ids: string[]) => ids.length > 0,
+                    message: "participantIds must contain at least one participant"
+                },
+                {
+                    validator: (ids: string[]) => new Set(ids).size === ids.length,
+                    message: "participantIds must be unique"
+                }
+            ]
+        },
         lastMessage: { type: Schema.Types.ObjectId, ref: "Message", default: null },
         lastMessageAt: { type: Date, default: Date.now }
     }, 
