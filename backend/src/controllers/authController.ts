@@ -49,38 +49,42 @@ export async function authCallback(req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    // Check if user already exists in SQL by clerkId
-    const [existingRows] = await execute(
+    // Fetch user info from Clerk first
+    const clerkUser = await clerkClient.users.getUser(clerkId);
+
+    const name = (clerkUser.firstName
+      ? `${clerkUser.firstName} ${clerkUser.lastName || ""}`.trim()
+      : clerkUser.emailAddresses[0]?.emailAddress?.split("@")[0] ?? "Unknown"
+    ).slice(0, 100);
+
+    const email = (clerkUser.emailAddresses[0]?.emailAddress ?? "").slice(0, 255);
+    const avatar = (clerkUser.imageUrl ?? "").slice(0, 500);
+
+    // Atomic upsert — no race condition possible
+    // If clerkId already exists (unique constraint), update name/avatar in case they changed
+    await execute(
+      `INSERT INTO Users (userName, userEmail, profilePicture, clerkId)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         userName = VALUES(userName),
+         profilePicture = VALUES(profilePicture)`,
+      [name, email, avatar, clerkId]
+    ) as [ResultSetHeader, unknown];
+
+    // Fetch the final user record (works for both insert and update)
+    const [rows] = await execute(
       "SELECT userID, userName, userEmail, profilePicture FROM Users WHERE clerkId = ? LIMIT 1",
       [clerkId]
     ) as [ClerkUserRow[], unknown];
 
-    if (existingRows[0]) {
-      res.json(existingRows[0]);
+    const user = rows[0];
+
+    if (!user) {
+      res.status(500).json({ message: "Failed to retrieve user after upsert" });
       return;
     }
 
-    // User doesn't exist — fetch from Clerk and insert into SQL
-    const clerkUser = await clerkClient.users.getUser(clerkId);
-
-    const name = clerkUser.firstName
-      ? `${clerkUser.firstName} ${clerkUser.lastName || ""}`.trim()
-      : clerkUser.emailAddresses[0]?.emailAddress?.split("@")[0];
-
-    const email = clerkUser.emailAddresses[0]?.emailAddress;
-    const avatar = clerkUser.imageUrl;
-
-    const [result] = await execute(
-      `INSERT INTO Users (userName, userEmail, profilePicture, clerkId) VALUES (?, ?, ?, ?)`,
-      [name, email, avatar, clerkId]
-    ) as [ResultSetHeader, unknown];
-
-    const [newRows] = await execute(
-      "SELECT userID, userName, userEmail, profilePicture FROM Users WHERE userID = ? LIMIT 1",
-      [result.insertId]
-    ) as [ClerkUserRow[], unknown];
-
-    res.status(201).json(newRows[0]);
+    res.status(200).json(user);
   } catch (error) {
     res.status(500);
     next(error);
