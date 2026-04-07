@@ -1,8 +1,8 @@
-import mysql from 'mysql2/promise';
+import mysql, { type Pool } from 'mysql2/promise';
 import mongoose from 'mongoose';
 
 
-const pool = mysql.createPool({
+const pool : Pool = mysql.createPool({
     connectionLimit: 10,
     host: process.env.SQL_HOST,
     user: process.env.SQL_USER,

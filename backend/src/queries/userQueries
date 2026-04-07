@@ -1,0 +1,43 @@
+import _pool from "../config/database";
+import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const execute = (sql: string, params: any[]) => (_pool as any).execute(sql, params);
+
+export interface UserRow extends RowDataPacket {
+  userID: number;
+  userName: string;
+  userEmail: string;
+  userPassword: string;
+  publicKey: string | null;
+  privateKey: string | null;
+  keySalt: string | null;
+  isVerified: boolean;
+  profilePicture: string;
+  createdAt: Date;
+}
+
+export const createEncryptedUser = async (
+  userName: string,
+  userEmail: string,
+  hashedPassword: string,
+  publicKey: string,
+  encryptedPrivateKey: string,
+  keySalt: string
+): Promise<number> => {
+  const sql = `
+    INSERT INTO Users 
+    (userName, userEmail, userPassword, publicKey, privateKey, keySalt) 
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  const [result] = await execute(sql, [
+    userName, userEmail, hashedPassword, publicKey, encryptedPrivateKey, keySalt,
+  ]) as [ResultSetHeader, unknown];
+  return result.insertId;
+};
+
+export const getUserByEmail = async (userEmail: string): Promise<UserRow | null> => {
+  const sql = "SELECT * FROM Users WHERE userEmail = ? LIMIT 1";
+  const [rows] = await execute(sql, [userEmail]) as [UserRow[], unknown];
+  return rows[0] || null;
+};
