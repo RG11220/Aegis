@@ -56,8 +56,7 @@ export async function getChats(req: AuthRequest, res: Response, next: NextFuncti
 export async function getOrCreateChat(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const userId = req.userId!;
-    const { targetUserId } = req.params; // or req.body, depending on your route
-
+  const { participantId: targetUserId } = req.params;
     if (!targetUserId) {
       res.status(400).json({ message: "Participant ID is required" });
       return;
@@ -67,6 +66,24 @@ export async function getOrCreateChat(req: AuthRequest, res: Response, next: Nex
       res.status(400).json({ message: "Cannot create chat with yourself" });
       return;
     }
+
+    if (targetUserId === userId) {
+  res.status(400).json({ message: "Cannot create chat with yourself" });
+  return;
+}
+
+// ✅ ADD THIS
+const [userRows] = await execute(
+  "SELECT userID FROM Users WHERE userID = ? LIMIT 1",
+  [targetUserId]
+) as [UserRow[], unknown];
+
+if (!userRows[0]) {
+  res.status(404).json({ message: "User not found" });
+  return;
+}
+
+// then continue to Chat.findOne...
 
     // Find or create chat
     let chat = await Chat.findOne({
