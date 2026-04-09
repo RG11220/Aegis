@@ -13,31 +13,32 @@ interface UserRow extends RowDataPacket {
   userID: number;
 }
 
-// store online users in memory: userId -> socketId
-export const onlineUsers: Map<string, string> = new Map();
+// Fix 1: Store a Set of socketIds per userId to support multi-device
+export const onlineUsers: Map<string, Set<string>> = new Map();
 
 export const initializeSocket = (httpServer: HttpServer) => {
+  // Fix 2: Validate CLERK_SECRET_KEY at startup
+  if (!process.env.CLERK_SECRET_KEY) {
+    throw new Error("CLERK_SECRET_KEY is not set in environment variables");
+  }
+  const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+
   const allowedOrigins = [
-    "http://localhost:8081", // Expo mobile
-    "http://localhost:5173", // Vite web dev
+    "http://localhost:8081",
+    "http://localhost:5173",
     process.env.FRONTEND_URL,
   ].filter(Boolean) as string[];
 
   const io = new SocketServer(httpServer, { cors: { origin: allowedOrigins } });
 
-  // Authenticate socket connection via Clerk token
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
     if (!token) return next(new Error("Authentication error"));
 
     try {
-      const session = await verifyToken(token, {
-        secretKey: process.env.CLERK_SECRET_KEY!,
-      });
-
+      const session = await verifyToken(token, { secretKey: clerkSecretKey });
       const clerkId = session.sub;
 
-      // Look up user in SQL by clerkId
       const [rows] = await execute(
         "SELECT userID FROM Users WHERE clerkId = ? LIMIT 1",
         [clerkId]
@@ -46,7 +47,6 @@ export const initializeSocket = (httpServer: HttpServer) => {
       if (!rows[0]) return next(new Error("User not found"));
 
       socket.data.userId = rows[0].userID.toString();
-
       next();
     } catch (error: unknown) {
       next(new Error(String(error)));
@@ -56,31 +56,36 @@ export const initializeSocket = (httpServer: HttpServer) => {
   io.on("connection", (socket) => {
     const userId = socket.data.userId as string;
 
-    // Send list of online users to newly connected client
+    // Fix 1: Add socketId to the user's Set
+    if (!onlineUsers.has(userId)) {
+      onlineUsers.set(userId, new Set());
+    }
+    onlineUsers.get(userId)!.add(socket.id);
+
+    // Only broadcast online if this is their FIRST connection
+    if (onlineUsers.get(userId)!.size === 1) {
+      socket.broadcast.emit("user-online", { userId });
+    }
+
     socket.emit("online-users", { userIds: Array.from(onlineUsers.keys()) });
-
-    // Store user in onlineUsers map
-    onlineUsers.set(userId, socket.id);
-
-    // Notify others this user is online
-    socket.broadcast.emit("user-online", { userId });
 
     socket.join(`user:${userId}`);
 
-    socket.on("join-chat", (chatId: string) => {
+    socket.on("join-chat", async (chatId: string) => {
+    const chat = await Chat.findOne({ _id: chatId, participantIds: userId });
+    if (chat) {
       socket.join(`chat:${chatId}`);
+      }
     });
 
     socket.on("leave-chat", (chatId: string) => {
       socket.leave(`chat:${chatId}`);
     });
 
-    // Handle sending messages
     socket.on("send-message", async (data: { chatId: string; text: string }) => {
       try {
         const { chatId, text } = data;
 
-        // Use participantIds (your field name)
         const chat = await Chat.findOne({
           _id: chatId,
           participantIds: userId,
@@ -93,7 +98,7 @@ export const initializeSocket = (httpServer: HttpServer) => {
 
         const message = await Message.create({
           chat: chatId,
-          senderId: userId, // your field name
+          senderId: userId,
           text,
         });
 
@@ -101,24 +106,32 @@ export const initializeSocket = (httpServer: HttpServer) => {
         chat.lastMessageAt = new Date();
         await chat.save();
 
-        // Emit to chat room
-        io.to(`chat:${chatId}`).emit("new-message", message);
+        // Fix 3: Track who's in the chat room to avoid double emission
+        const chatRoom = io.sockets.adapter.rooms.get(`chat:${chatId}`);
 
-        // Emit to each participant's personal room
         for (const participantId of chat.participantIds) {
-          io.to(`user:${participantId}`).emit("new-message", message);
+          const participantSocketIds = onlineUsers.get(participantId);
+          if (!participantSocketIds) continue;
+
+          const isInChatRoom = [...participantSocketIds].some((sid) =>
+            chatRoom?.has(sid)
+          );
+
+          if (isInChatRoom) {
+            // They're in the chat room — emit there only
+            io.to(`chat:${chatId}`).emit("new-message", message);
+          } else {
+            // They're online but not in the chat room — emit to personal room
+            io.to(`user:${participantId}`).emit("new-message", message);
+          }
         }
-      } catch (error) {
+      } catch {
         socket.emit("socket-error", { message: "Failed to send message" });
       }
     });
 
     socket.on("typing", async (data: { chatId: string; isTyping: boolean }) => {
-      const typingPayload = {
-        userId,
-        chatId: data.chatId,
-        isTyping: data.isTyping,
-      };
+      const typingPayload = { userId, chatId: data.chatId, isTyping: data.isTyping };
 
       socket.to(`chat:${data.chatId}`).emit("typing", typingPayload);
 
@@ -131,13 +144,22 @@ export const initializeSocket = (httpServer: HttpServer) => {
           }
         }
       } catch {
-        // silently fail - typing indicator is not critical
+        // silently fail
       }
     });
 
     socket.on("disconnect", () => {
-      onlineUsers.delete(userId);
-      socket.broadcast.emit("user-offline", { userId });
+      // Fix 1: Remove only this socketId from the Set
+      const sockets = onlineUsers.get(userId);
+      if (sockets) {
+        sockets.delete(socket.id);
+
+        // Only broadcast offline if they have NO remaining connections
+        if (sockets.size === 0) {
+          onlineUsers.delete(userId);
+          socket.broadcast.emit("user-offline", { userId });
+        }
+      }
     });
   });
 
