@@ -1,6 +1,6 @@
 // HMAC-SHA256 implemented from scratch — RFC 2104
 
-import { sha256 } from "./sha256";
+import { sha256 } from "./Sha256";
 
 const BLOCK_SIZE = 64;
 

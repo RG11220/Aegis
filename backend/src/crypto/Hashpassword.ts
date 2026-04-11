@@ -1,7 +1,7 @@
 // Password hashing using our custom PBKDF2-HMAC-SHA256
 // Stores as "saltHex:hashHex"
 
-import { pbkdf2 } from "./pbkdf2";
+import { pbkdf2 } from "./Pbkdf2";
 import { webcrypto } from "crypto";
 
 const ITERATIONS = 310_000;

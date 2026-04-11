@@ -36,6 +36,13 @@ export function pbkdf2(
   iterations: number,
   keyLength: number
 ): Uint8Array {
+  if (!Number.isInteger(iterations) || iterations < 1) {
+    throw new Error("PBKDF2 iterations must be a positive integer");
+  }
+  if (!Number.isInteger(keyLength) || keyLength < 1) {
+    throw new Error("PBKDF2 keyLength must be a positive integer");
+  }
+
   const passwordBytes = typeof password === "string"
     ? new TextEncoder().encode(password)
     : password;

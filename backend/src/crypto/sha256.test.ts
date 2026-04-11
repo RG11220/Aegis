@@ -1,7 +1,7 @@
 // sha256-debug-fixed.test.ts - Tests your FIXED implementation
 process.stdout.write("SHA-256 tests starting...\n");
 
-import { sha256Hex } from "./sha256";
+import { sha256Hex } from "./Sha256";
 
 type TestVector = { input: string; expected: string };
 
