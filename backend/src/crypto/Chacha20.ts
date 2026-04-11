@@ -71,6 +71,14 @@ export function chacha20(
   if (key.length !== 32) throw new Error("ChaCha20 key must be 32 bytes");
   if (nonce.length !== 12) throw new Error("ChaCha20 nonce must be 12 bytes");
 
+  if (!Number.isInteger(counter) || counter < 0 || counter > 0xffffffff) {
+    throw new Error("ChaCha20 counter must be a 32-bit unsigned integer");
+    }
+  const blocksNeeded = Math.ceil(data.length / 64);
+  if (counter + blocksNeeded > 0x1_0000_0000) {
+    throw new Error("ChaCha20 counter overflow");
+  }
+
   const output = new Uint8Array(data.length);
   let blockCounter = counter;
 
