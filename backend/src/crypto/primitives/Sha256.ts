@@ -1,5 +1,4 @@
 // SHA-256 implemented from scratch — FIPS PUB 180-4
-// CORRECTED VERSION - All tests will pass
 
 const K: Uint32Array = new Uint32Array([
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -19,40 +18,30 @@ const H_INIT: Uint32Array = new Uint32Array([
 
 export function sha256(input: Uint8Array | string): Uint8Array {
   const msg = typeof input === "string" ? new TextEncoder().encode(input) : input;
-  
-  // 1. Preprocessing (Padding) - CORRECTED
+
   const n = msg.length;
   const bitLen64 = BigInt(n) * 8n;
-  
-  // Calculate padded length: message + 1 + k + 8 = multiple of 64
-  let padLen = n + 9;  // message + '1' bit + minimum 1 zero + 8 length bytes
-  padLen = ((padLen + 63) >>> 0) & ~63;  // Round up to 64-byte boundary
-  
+
+  let padLen = n + 9;
+  padLen = ((padLen + 63) >>> 0) & ~63;
+
   const p = new Uint8Array(padLen);
   p.set(msg, 0);
-  p[n] = 0x80;  // Padding '1' bit
-  
-  // Zero fill remaining bytes before length field
-  for (let i = n + 1; i < padLen - 8; i++) {
-    p[i] = 0x00;
-  }
-  
-  const view = new DataView(p.buffer);
-  view.setUint32(padLen - 8, Number(bitLen64 >> 32n), false);  // High 32 bits
-  view.setUint32(padLen - 4, Number(bitLen64 & 0xFFFFFFFFn), false);  // Low 32 bits
+  p[n] = 0x80;
 
-  // 2. Initialize Hash Values
+  for (let i = n + 1; i < padLen - 8; i++) p[i] = 0x00;
+
+  const view = new DataView(p.buffer);
+  view.setUint32(padLen - 8, Number(bitLen64 >> 32n), false);
+  view.setUint32(padLen - 4, Number(bitLen64 & 0xffffffffn), false);
+
   let h0 = H_INIT[0]!, h1 = H_INIT[1]!, h2 = H_INIT[2]!, h3 = H_INIT[3]!,
       h4 = H_INIT[4]!, h5 = H_INIT[5]!, h6 = H_INIT[6]!, h7 = H_INIT[7]!;
 
-  // 3. Process message in 512-bit chunks
   for (let j = 0; j < padLen; j += 64) {
     const w = new Uint32Array(64);
-    for (let i = 0; i < 16; i++) {
-      w[i] = view.getUint32(j + i * 4, false);
-    }
+    for (let i = 0; i < 16; i++) w[i] = view.getUint32(j + i * 4, false);
 
-    // Extend the sixteen 32-bit words into sixty-four 32-bit words
     for (let i = 16; i < 64; i++) {
       const w15 = w[i - 15]!;
       const s0 = ((w15 >>> 7 | w15 << 25) ^ (w15 >>> 18 | w15 << 14) ^ (w15 >>> 3)) >>> 0;
@@ -63,10 +52,9 @@ export function sha256(input: Uint8Array | string): Uint8Array {
 
     let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
 
-    // Main hash computation
     for (let i = 0; i < 64; i++) {
       const s1 = ((e >>> 6 | e << 26) ^ (e >>> 11 | e << 21) ^ (e >>> 25 | e << 7)) >>> 0;
-      const ch = ((e & f) ^ ((~e) & g)) >>> 0;
+      const ch = ((e & f) ^ (~e & g)) >>> 0;
       const t1 = (h + s1 + ch + K[i]! + w[i]!) >>> 0;
       const s0 = ((a >>> 2 | a << 30) ^ (a >>> 13 | a << 19) ^ (a >>> 22 | a << 10)) >>> 0;
       const maj = ((a & b) ^ (a & c) ^ (b & c)) >>> 0;
@@ -78,7 +66,6 @@ export function sha256(input: Uint8Array | string): Uint8Array {
       a = (t1 + t2) >>> 0;
     }
 
-    // Add this chunk's hash to result so far
     h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0;
     h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0;
     h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0;
@@ -87,16 +74,13 @@ export function sha256(input: Uint8Array | string): Uint8Array {
 
   const result = new Uint8Array(32);
   const out = new DataView(result.buffer);
-  out.setUint32(0, h0, false); out.setUint32(4, h1, false);
-  out.setUint32(8, h2, false); out.setUint32(12, h3, false);
+  out.setUint32(0, h0, false);  out.setUint32(4, h1, false);
+  out.setUint32(8, h2, false);  out.setUint32(12, h3, false);
   out.setUint32(16, h4, false); out.setUint32(20, h5, false);
   out.setUint32(24, h6, false); out.setUint32(28, h7, false);
   return result;
 }
 
 export function sha256Hex(input: Uint8Array | string): string {
-  const hash = sha256(input);
-  return Array.from(hash)
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
+  return Array.from(sha256(input)).map(b => b.toString(16).padStart(2, "0")).join("");
 }

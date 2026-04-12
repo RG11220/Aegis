@@ -1,7 +1,7 @@
 // Encrypts the RSA private key PEM using PBKDF2 (our impl) + ChaCha20 (our impl)
 
-import { pbkdf2 } from "./Pbkdf2";
-import { chacha20 } from "./Chacha20";
+import { pbkdf2 }   from "../primitives/Pbkdf2";
+import { chacha20 } from "../primitives/Chacha20";
 import { webcrypto } from "crypto";
 
 const ITERATIONS = 310_000;
@@ -24,17 +24,11 @@ export function encryptPrivateKey(
   const nonce = getRandomBytes(12);
 
   const derivedKey = pbkdf2(password, salt, ITERATIONS, 32);
-
-  const plaintext  = new TextEncoder().encode(privateKeyPem);
-  const ciphertext = chacha20(derivedKey, nonce, plaintext);
-
-  const nonceHex      = Buffer.from(nonce).toString("hex");
-  const ciphertextHex = Buffer.from(ciphertext).toString("hex");
-  const saltHex       = Buffer.from(salt).toString("hex");
+  const ciphertext = chacha20(derivedKey, nonce, new TextEncoder().encode(privateKeyPem));
 
   return {
-    encryptedPrivateKey: `${nonceHex}:${ciphertextHex}`,
-    keySalt: saltHex,
+    encryptedPrivateKey: `${Buffer.from(nonce).toString("hex")}:${Buffer.from(ciphertext).toString("hex")}`,
+    keySalt: Buffer.from(salt).toString("hex"),
   };
 }
 
@@ -46,13 +40,12 @@ export function decryptPrivateKey(
   keySalt: string,
   password: string
 ): string {
-  const salt  = Buffer.from(keySalt, "hex");
-  const parts = encryptedPrivateKey.split(":");
-  const nonce      = Buffer.from(parts[0] ?? "", "hex");
-  const ciphertext = Buffer.from(parts[1] ?? "", "hex");
+  const salt = Buffer.from(keySalt, "hex");
+  const [nonceHex = "", ciphertextHex = ""] = encryptedPrivateKey.split(":");
+  const nonce      = Buffer.from(nonceHex, "hex");
+  const ciphertext = Buffer.from(ciphertextHex, "hex");
 
   const derivedKey = pbkdf2(password, salt, ITERATIONS, 32);
   const plaintext  = chacha20(derivedKey, nonce, ciphertext);
-
   return new TextDecoder().decode(plaintext);
 }
