@@ -2,17 +2,10 @@ import type { NextFunction, Response } from "express";
 import type { AuthRequest } from "../middleware/auth";
 import Chat from "../models/Chat";
 import _pool from "../config/database";
-import type { RowDataPacket } from "mysql2/promise";
+import { mapUser, type UserRow } from "../utils/mapUser";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const execute = (sql: string, params: any[]) => (_pool as any).execute(sql, params);
-
-interface UserRow extends RowDataPacket {
-  userID: number;
-  userName: string;
-  userEmail: string;
-  profilePicture: string;
-}
 
 export async function getChats(req: AuthRequest, res: Response, next: NextFunction) {
   try {
@@ -35,7 +28,7 @@ export async function getChats(req: AuthRequest, res: Response, next: NextFuncti
 
         return {
           _id: chat._id,
-          participant: rows[0] ?? null,
+          participant: rows[0] ? mapUser(rows[0]) : null,
           lastMessage: chat.lastMessage,
           lastMessageAt: chat.lastMessageAt,
           createdAt: chat.createdAt,
@@ -104,7 +97,7 @@ if (!userRows[0]) {
 
     res.json({
       _id: chat._id,
-      participant: rows[0] ?? null,
+      participant: rows[0] ? mapUser(rows[0]) : null,
       lastMessage: chat.lastMessage,
       lastMessageAt: chat.lastMessageAt,
       createdAt: chat.createdAt,

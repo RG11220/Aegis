@@ -3,6 +3,7 @@ import type { AuthRequest } from "../middleware/auth";
 import { clerkClient, getAuth } from "@clerk/express";
 import _pool from "../config/database";
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
+import { mapUser } from "../utils/mapUser";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const execute = (sql: string, params: any[]) => (_pool as any).execute(sql, params);
@@ -32,7 +33,7 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
       return;
     }
 
-    res.status(200).json(user);
+    res.status(200).json(mapUser(user));
   } catch (error) {
     res.status(500);
     next(error);
@@ -84,7 +85,7 @@ export async function authCallback(req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    res.status(200).json(user);
+    res.status(200).json(mapUser(user));
   } catch (error) {
     res.status(500);
     next(error);
