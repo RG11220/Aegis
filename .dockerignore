@@ -8,5 +8,5 @@ README.md
 .DS_Store
 .expo
 mobile
-*.md
+.md
 .vscode

@@ -1,14 +1,21 @@
 import { Stack } from "expo-router";
-import "../lobal.css";
-import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
+import "../global.css";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ClerkProvider } from "@clerk/clerk-expo";
+import {tokenCache} from "@clerk/clerk-expo/token-cache";
+
 
 
 const queryClient = new QueryClient();
-
 export default function RootLayout() {
-  return <QueryClientProvider client={queryClient}>
-    <Stack>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-    </Stack>
-  </QueryClientProvider>;
+  return (
+    <ClerkProvider tokenCache={tokenCache}>
+      <QueryClientProvider client={queryClient}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#242428' } }}>
+          <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'fade' }} />
+        </Stack>
+      </QueryClientProvider>
+    </ClerkProvider>
+  );
 }
