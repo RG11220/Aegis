@@ -1,4 +1,4 @@
-import { View, Text, Dimensions, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,9 +7,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { AnimatedOrb } from "@/components/AnimatedOrb";
 import { useRouter } from "expo-router";
 
-const { width, height } = Dimensions.get("window");
-
 const AuthScreen = () => {
+  const { width, height } = useWindowDimensions();
   const { handleSocialAuth, loadingStrategy } = useAuthSocial();
   const router = useRouter();
 
@@ -103,12 +102,15 @@ const AuthScreen = () => {
 
           <Text className="text-muted-foreground text-xs text-center mt-6 px-4">
             Don't have an account?{" "}
-            <Text
-              style={{ color: "#00876F", fontWeight: "600" }}
+            <Pressable
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Sign up"
               onPress={() => router.push("/(auth)/sign-up")}
+              style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
             >
-              Sign up
-            </Text>
+              <Text style={{ color: "#00876F", fontWeight: "600" }}>Sign up</Text>
+            </Pressable>
           </Text>
         </View>
       </SafeAreaView>

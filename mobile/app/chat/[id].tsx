@@ -94,7 +94,6 @@ const ChatDetailScreen = () => {
   );
 
   const handleSend = () => {
-    console.log({ isSending, isConnected, currentUser, messageText });
     if (!messageText.trim() || isSending || !isConnected || !currentUser) return;
 
     // stop typing indicator

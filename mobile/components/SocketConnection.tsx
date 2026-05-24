@@ -11,9 +11,13 @@ const SocketConnection = () => {
 
   useEffect(() => {
     if (isSignedIn) {
-      getToken().then((token) => {
-        if (token) connect(token, queryClient);
-      });
+      getToken()
+        .then((token) => {
+          if (token) connect(token, queryClient);
+        })
+        .catch((error) => {
+          console.error("Failed to fetch auth token", error);
+        });
     } else {
       disconnect();
     }

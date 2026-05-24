@@ -4,11 +4,12 @@ import { QueryClient } from "@tanstack/react-query";
 import { Chat, Message, MessageSender } from "@/types";
 import * as Sentry from "@sentry/react-native";
 
-const SOCKET_URL = "http://10.0.0.1:3000"; // change!!!!!!!!!!!! (local IP — swap for hosted URL when deployed)
+const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || "http://localhost:3000";
 
 export interface SocketState {
   socket: Socket | null;
   isConnected: boolean;
+  isConnecting: boolean;
   onlineUsers: Set<string>;
   typingUsers: Map<string, string>; // chatId -> userId
   unreadChats: Set<string>;
@@ -26,6 +27,7 @@ export interface SocketState {
 export const useSocketStore = create<SocketState>((set, get) => ({
   socket: null,
   isConnected: false,
+  isConnecting: false,
   onlineUsers: new Set(),
   typingUsers: new Map(),
   unreadChats: new Set(),
@@ -34,22 +36,33 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
   connect: (token, queryClient) => {
     const existingSocket = get().socket;
-    if (existingSocket?.connected) return;
+    if (existingSocket?.connected || get().isConnecting) return;
 
     if (existingSocket) existingSocket.disconnect();
+    set({ isConnecting: true });
 
     const socket = io(SOCKET_URL, { auth: { token } });
 
     socket.on("connect", () => {
       console.log("Socket connected, id:", socket.id);
       Sentry.logger.info("Socket connected", { socketId: socket.id });
-      set({ isConnected: true });
+      set({ isConnected: true, isConnecting: false });
+    });
+
+    socket.on("connect_error", (error: Error) => {
+      console.error("Socket connect error", error);
+      set({ isConnecting: false });
+    });
+
+    socket.on("error", (error: Error) => {
+      console.error("Socket error", error);
+      set({ isConnecting: false });
     });
 
     socket.on("disconnect", () => {
       console.log("Socket disconnect", socket.id);
       Sentry.logger.info("Socket disconnect", { socketId: socket.id });
-      set({ isConnected: false });
+      set({ isConnected: false, isConnecting: false });
     });
 
     socket.on("online-users", ({ userIds }: { userIds: string[] }) => {
@@ -200,23 +213,28 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       return [...old, optimisticMessage];
     });
 
-    socket.emit("send-message", { chatId, text });
+    const payload = { chatId, text, tempId };
 
-    Sentry.logger.info("Message sent successfully", { chatId, messageLength: text.length });
+    socket.emit("send-message", payload, (response: { error?: string; messageId?: string }) => {
+      if (response?.error) {
+        Sentry.logger.error("Failed to send message", {
+          chatId,
+          error: response.error,
+          tempId,
+        });
+        queryClient.setQueryData<Message[]>(["messages", chatId], (old) => {
+          if (!old) return [];
+          return old.filter((m) => m._id !== (response.messageId ?? tempId));
+        });
+        return;
+      }
 
-    const errorHandler = (error: { message: string }) => {
-      Sentry.logger.error("Failed to send message", {
+      Sentry.logger.info("Message sent successfully", {
         chatId,
-        error: error.message,
+        messageLength: text.length,
+        tempId,
       });
-      queryClient.setQueryData<Message[]>(["messages", chatId], (old) => {
-        if (!old) return [];
-        return old.filter((m) => m._id !== tempId);
-      });
-      socket.off("socket-error", errorHandler);
-    };
-
-    socket.once("socket-error", errorHandler);
+    });
   },
 
   sendTyping: (chatId, isTyping) => {

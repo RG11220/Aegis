@@ -1,7 +1,8 @@
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import { View, Text, ScrollView, Pressable } from "react-native";
+import { View, Text, ScrollView, Pressable, Alert } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
 
 const MENU_SECTIONS = [
   {
@@ -33,6 +34,30 @@ const MENU_SECTIONS = [
 const settings = () => {
   const { signOut } = useAuth();
   const { user } = useUser();
+  const [isUploading, setIsUploading] = useState(false);
+
+  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Anonymous";
+
+  const handleMenuPress = (item: { label: string; onPress?: () => void }) => {
+    if (item.onPress) {
+      item.onPress();
+    } else {
+      console.warn(`Menu item pressed: ${item.label}`);
+    }
+  };
+
+  const handleChangeProfilePhoto = async () => {
+    if (isUploading) return;
+
+    try {
+      setIsUploading(true);
+      Alert.alert("Change profile photo", "Profile photo update is enabled, but an image picker is not configured in this project.");
+    } catch (error) {
+      console.error("Failed to update profile photo", error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   return (
     <ScrollView
@@ -52,8 +77,20 @@ const settings = () => {
               />
             </View>
 
-            <Pressable className="absolute bottom-1 right-1 w-8 h-8 bg-primary rounded-full items-center justify-center border-2 border-surface-dark">
-              <Ionicons name="camera" size={16} color="#0D0D0F" />
+            <Pressable
+              onPress={handleChangeProfilePhoto}
+              disabled={isUploading}
+              accessibilityRole="button"
+              accessibilityLabel="Change profile photo"
+              testID="change-profile-photo"
+              className="absolute bottom-1 right-1 w-8 h-8 bg-primary rounded-full items-center justify-center border-2 border-surface-dark"
+              style={({ pressed }) => ({ opacity: pressed || isUploading ? 0.6 : 1 })}
+            >
+              {isUploading ? (
+                <Ionicons name="cloud-upload-outline" size={16} color="#0D0D0F" />
+              ) : (
+                <Ionicons name="camera" size={16} color="#0D0D0F" />
+              )}
             </Pressable>
           </View>
 
@@ -83,6 +120,8 @@ const settings = () => {
             {section.items.map((item, index) => (
               <Pressable
                 key={item.label}
+                onPress={() => handleMenuPress(item)}
+                accessibilityRole="button"
                 className={`flex-row items-center px-4 py-3.5 active:bg-surface-light ${
                   index < section.items.length - 1 ? "border-b border-surface-light" : ""
                 }`}
