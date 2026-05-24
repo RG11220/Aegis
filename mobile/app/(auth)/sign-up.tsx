@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native'
 import React, { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useSignUp } from '@clerk/clerk-expo'
@@ -9,20 +9,30 @@ const SignUpScreen = () => {
   const { signUp, setActive, isLoaded } = useSignUp()
   const router = useRouter()
 
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [code, setCode] = useState('')
   const [pendingVerification, setPendingVerification] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const passwordsMatch = password === confirmPassword
+  const canSubmit = username.trim() && email && password && confirmPassword && passwordsMatch
+
   const handleSignUp = async () => {
     if (!isLoaded) return
+    if (!passwordsMatch) {
+      setError('Passwords do not match.')
+      return
+    }
     try {
       setLoading(true)
       setError('')
-      await signUp.create({ emailAddress: email, password })
+      await signUp.create({ username, emailAddress: email, password })
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
       setPendingVerification(true)
     } catch (err: any) {
@@ -55,7 +65,6 @@ const SignUpScreen = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           className='flex-1'
         >
-          {/* Back button */}
           <View className='px-6 pt-4'>
             <TouchableOpacity
               onPress={() => setPendingVerification(false)}
@@ -65,7 +74,6 @@ const SignUpScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Centered form area */}
           <View className='flex-1 justify-center px-6'>
             <View className='mb-8'>
               <View className='w-10 h-1 bg-primary-light rounded-full mb-4' />
@@ -86,7 +94,7 @@ const SignUpScreen = () => {
                   placeholderTextColor='#444'
                   keyboardType='number-pad'
                   maxLength={6}
-                  className='bg-surface-card text-white rounded-2xl px-4 py-4 text-base border border-surface-light tracking-widest text-center'
+                  className='bg-surface-card text-white rounded-2xl px-4 py-4 text-base border border-surface-light text-center tracking-widest'
                 />
               </View>
 
@@ -99,17 +107,13 @@ const SignUpScreen = () => {
             </View>
           </View>
 
-          {/* CTA pinned to bottom */}
           <View className='px-6 pb-10 gap-4'>
             <TouchableOpacity
               onPress={handleVerify}
               disabled={loading || code.length < 6}
               activeOpacity={0.85}
               className='rounded-2xl py-4 items-center'
-              style={{
-                backgroundColor: '#00876F',
-                opacity: code.length < 6 ? 0.45 : 1,
-              }}
+              style={{ backgroundColor: '#00876F', opacity: code.length < 6 ? 0.45 : 1 }}
             >
               {loading ? (
                 <ActivityIndicator color='#fff' />
@@ -118,11 +122,7 @@ const SignUpScreen = () => {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={handleSignUp}
-              disabled={loading}
-              className='items-center py-1'
-            >
+            <TouchableOpacity onPress={handleSignUp} disabled={loading} className='items-center py-1'>
               <Text className='text-gray-500 text-sm'>
                 Didn't get it?{' '}
                 <Text style={{ color: '#00876F' }} className='font-semibold'>Resend code</Text>
@@ -140,90 +140,138 @@ const SignUpScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className='flex-1'
       >
-        {/* Back button */}
-        <View className='px-6 pt-4'>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className='w-10 h-10 rounded-full bg-surface-card items-center justify-center'
-          >
-            <Feather name='arrow-left' size={20} color='#ffffff' />
-          </TouchableOpacity>
-        </View>
-
-        {/* Centered form area */}
-        <View className='flex-1 justify-center px-6'>
-          <View className='mb-8'>
-            <View className='w-10 h-1 bg-primary-light rounded-full mb-4' />
-            <Text className='text-white text-3xl font-bold'>Create your{'\n'}account</Text>
-            <Text className='text-gray-500 mt-2 text-sm'>Join Aegis to get started.</Text>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps='handled'
+          showsVerticalScrollIndicator={false}
+        >
+          <View className='px-6 pt-4'>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              className='w-10 h-10 rounded-full bg-surface-card items-center justify-center'
+            >
+              <Feather name='arrow-left' size={20} color='#ffffff' />
+            </TouchableOpacity>
           </View>
 
-          <View className='gap-4'>
-            <View>
-              <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Email</Text>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder='you@example.com'
-                placeholderTextColor='#444'
-                keyboardType='email-address'
-                autoCapitalize='none'
-                className='bg-surface-card text-white rounded-2xl px-4 py-4 text-base border border-surface-light'
-              />
+          <View className='px-6 pt-6 pb-10'>
+            <View className='mb-8'>
+              <View className='w-10 h-1 bg-primary-light rounded-full mb-4' />
+              <Text className='text-white text-3xl font-bold'>Create your{'\n'}account</Text>
+              <Text className='text-gray-500 mt-2 text-sm'>Join Aegis to get started.</Text>
             </View>
 
-            <View>
-              <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Password</Text>
-              <View className='bg-surface-card rounded-2xl flex-row items-center px-4 border border-surface-light'>
-                <TextInput
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder='••••••••'
-                  placeholderTextColor='#444'
-                  secureTextEntry={!showPassword}
-                  className='flex-1 text-white py-4 text-base'
-                />
-                <TouchableOpacity onPress={() => setShowPassword(p => !p)}>
-                  <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color='#666' />
-                </TouchableOpacity>
+            <View className='gap-4'>
+              {/* Username */}
+              <View>
+                <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Username</Text>
+                <View className='bg-surface-card rounded-2xl flex-row items-center px-4 border border-surface-light'>
+                  <Feather name='at-sign' size={16} color='#666' />
+                  <TextInput
+                    value={username}
+                    onChangeText={setUsername}
+                    placeholder='your_username'
+                    placeholderTextColor='#444'
+                    autoCapitalize='none'
+                    autoCorrect={false}
+                    className='flex-1 text-white py-4 text-base ml-3'
+                  />
+                </View>
               </View>
-            </View>
 
-            {error ? (
-              <View className='flex-row items-center gap-2'>
-                <Feather name='alert-circle' size={14} color='#f87171' />
-                <Text className='text-red-400 text-sm'>{error}</Text>
+              {/* Email */}
+              <View>
+                <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Email</Text>
+                <View className='bg-surface-card rounded-2xl flex-row items-center px-4 border border-surface-light'>
+                  <Feather name='mail' size={16} color='#666' />
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder='you@example.com'
+                    placeholderTextColor='#444'
+                    keyboardType='email-address'
+                    autoCapitalize='none'
+                    className='flex-1 text-white py-4 text-base ml-3'
+                  />
+                </View>
               </View>
-            ) : null}
+
+              {/* Password */}
+              <View>
+                <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Password</Text>
+                <View className='bg-surface-card rounded-2xl flex-row items-center px-4 border border-surface-light'>
+                  <Feather name='lock' size={16} color='#666' />
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder='••••••••'
+                    placeholderTextColor='#444'
+                    secureTextEntry={!showPassword}
+                    className='flex-1 text-white py-4 text-base ml-3'
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(p => !p)}>
+                    <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color='#666' />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Confirm Password */}
+              <View>
+                <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Confirm Password</Text>
+                <View
+                  className='bg-surface-card rounded-2xl flex-row items-center px-4 border'
+                  style={{
+                    borderColor: confirmPassword && !passwordsMatch ? '#f87171' : '#2a2a2a',
+                  }}
+                >
+                  <Feather name='lock' size={16} color='#666' />
+                  <TextInput
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder='••••••••'
+                    placeholderTextColor='#444'
+                    secureTextEntry={!showConfirmPassword}
+                    className='flex-1 text-white py-4 text-base ml-3'
+                  />
+                  <TouchableOpacity onPress={() => setShowConfirmPassword(p => !p)}>
+                    <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={18} color='#666' />
+                  </TouchableOpacity>
+                </View>
+                {confirmPassword && !passwordsMatch ? (
+                  <Text className='text-red-400 text-xs mt-1 ml-1'>Passwords do not match</Text>
+                ) : null}
+              </View>
+
+              {error ? (
+                <View className='flex-row items-center gap-2'>
+                  <Feather name='alert-circle' size={14} color='#f87171' />
+                  <Text className='text-red-400 text-sm'>{error}</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                onPress={handleSignUp}
+                disabled={loading || !canSubmit}
+                activeOpacity={0.85}
+                className='rounded-2xl py-4 items-center mt-2'
+                style={{ backgroundColor: '#00876F', opacity: !canSubmit ? 0.45 : 1 }}
+              >
+                {loading ? (
+                  <ActivityIndicator color='#fff' />
+                ) : (
+                  <Text className='text-white font-bold text-base tracking-wide'>Create Account</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')} className='items-center py-1'>
+                <Text className='text-gray-500 text-sm'>
+                  Already have an account?{' '}
+                  <Text style={{ color: '#00876F' }} className='font-semibold'>Sign in</Text>
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-
-        {/* CTA pinned to bottom */}
-        <View className='px-6 pb-10 gap-4'>
-          <TouchableOpacity
-            onPress={handleSignUp}
-            disabled={loading || !email || !password}
-            activeOpacity={0.85}
-            className='rounded-2xl py-4 items-center'
-            style={{
-              backgroundColor: '#00876F',
-              opacity: !email || !password ? 0.45 : 1,
-            }}
-          >
-            {loading ? (
-              <ActivityIndicator color='#fff' />
-            ) : (
-              <Text className='text-white font-bold text-base tracking-wide'>Create Account</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')} className='items-center py-1'>
-            <Text className='text-gray-500 text-sm'>
-              Already have an account?{' '}
-              <Text style={{ color: '#00876F' }} className='font-semibold'>Sign in</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   )

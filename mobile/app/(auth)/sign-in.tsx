@@ -59,14 +59,14 @@ const SignInScreen = () => {
           {/* Fields */}
           <View className='gap-4'>
             <View>
-              <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Email</Text>
+              <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Email or Username</Text>
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder='you@example.com'
+                placeholder='you@example.com or your_username'
                 placeholderTextColor='#444'
-                keyboardType='email-address'
                 autoCapitalize='none'
+                autoCorrect={false}
                 className='bg-surface-card text-white rounded-2xl px-4 py-4 text-base border border-surface-light'
               />
             </View>
