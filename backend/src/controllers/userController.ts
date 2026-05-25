@@ -11,7 +11,7 @@ export async function getUsers(req: AuthRequest, res: Response, next: NextFuncti
     const userId = req.userId;
 
     const [rows] = await execute(
-      "SELECT userID, userName, userEmail, profilePicture FROM Users WHERE userID != ? LIMIT 25",
+      "SELECT userID, userName, userEmail, profilePicture, publicKey FROM Users WHERE userID != ? LIMIT 25",
       [userId]
     ) as [UserRow[], unknown];
 

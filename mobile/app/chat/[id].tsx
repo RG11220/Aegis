@@ -108,6 +108,7 @@ const ChatDetailScreen = () => {
       name: currentUser.name,
       email: currentUser.email,
       avatar: currentUser.avatar,
+      publicKey: currentUser.publicKey ?? null,
     });
     setMessageText("");
     setIsSending(false);

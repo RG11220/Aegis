@@ -1,10 +1,10 @@
 // Deterministic Miller-Rabin primality test + seeded prime generation
 //
-// isPrime()         — 12 deterministic witnesses, proven correct for n < 3.3 × 10^24 (~2^82).
-//                     Used as a fast prefilter to cheaply reject most composites.
+// isPrime()        — 12 deterministic witnesses, proven correct for n < 3.3 × 10^24 (~2^82).
+//                    Used as a fast prefilter to cheaply reject most composites.
 // isProbablePrime() — 40 random-witness rounds via the SeededRng.
-//                     Error probability < 4^{-40} ≈ 2^{-80} per candidate.
-// generatePrime()   — calls both; safe for 1024-bit RSA primes.
+//                    Error probability < 4^{-40} ≈ 2^{-80} per candidate.
+// generatePrime()  — calls both; safe for 1024-bit RSA primes.
 
 import { modPow, bytesToBigInt } from "./RsaMath";
 import type { SeededRng }        from "../seed/SeededRng";
@@ -36,7 +36,7 @@ export function isPrime(n: bigint): boolean {
   return true;
 }
 
-// ── Probabilistic rounds with random witnesses ────────────────────────────────
+// ── Probabilistic rounds with random witnesses ─────────────────────────────────
 
 const RANDOM_WITNESS_ROUNDS = 40; // error probability < 4^{-40} ≈ 2^{-80}
 

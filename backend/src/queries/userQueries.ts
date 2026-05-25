@@ -70,6 +70,22 @@ export const setUserVerified = async (userID: number): Promise<void> => {
   await execute("UPDATE Users SET isVerified = 1 WHERE userID = ?", [userID]);
 };
 
+/**
+ * Store the user's RSA public key and encrypted private key blob.
+ * Called once after account creation — server never sees the plaintext private key.
+ */
+export const storeUserKeys = async (
+  userID: number,
+  publicKey: string,
+  encryptedPrivateKey: string,
+  keySalt: string
+): Promise<void> => {
+  await execute(
+    "UPDATE Users SET publicKey = ?, privateKey = ?, keySalt = ? WHERE userID = ?",
+    [publicKey, encryptedPrivateKey, keySalt, userID]
+  );
+};
+
 export const updateEncryptedPrivateKey = async (
   userID: number,
   encryptedPrivateKey: string,

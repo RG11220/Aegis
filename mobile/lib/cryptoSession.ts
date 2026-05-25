@@ -1,0 +1,42 @@
+/**
+ * In-memory crypto session store — Phase 5.
+ *
+ * Holds the user's decrypted RSA private key PEM for the lifetime of the app session.
+ * The key is never persisted to disk (no AsyncStorage / SecureStore).
+ * It must be re-derived from the password after every cold start.
+ *
+ * Usage:
+ *   // After unlocking:
+ *   useCryptoSession.getState().setKeys(privateKeyPem, publicKeyPem);
+ *
+ *   // In crypto operations:
+ *   const { privateKeyPem } = useCryptoSession();
+ *   if (!privateKeyPem) { /* show unlock modal *\/ }
+ *
+ *   // On sign-out:
+ *   useCryptoSession.getState().clear();
+ */
+
+import { create } from "zustand";
+
+interface CryptoSession {
+  /** Decrypted PKCS#8 PEM private key — null until the user has unlocked. */
+  privateKeyPem: string | null;
+  /** SPKI PEM public key — populated alongside privateKeyPem. */
+  publicKeyPem: string | null;
+
+  /** Store both keys after a successful unlock. */
+  setKeys: (privateKeyPem: string, publicKeyPem: string) => void;
+  /** Wipe keys from memory (call on sign-out or app background). */
+  clear: () => void;
+}
+
+export const useCryptoSession = create<CryptoSession>((set) => ({
+  privateKeyPem: null,
+  publicKeyPem:  null,
+
+  setKeys: (privateKeyPem, publicKeyPem) =>
+    set({ privateKeyPem, publicKeyPem }),
+
+  clear: () => set({ privateKeyPem: null, publicKeyPem: null }),
+}));
