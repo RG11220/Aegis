@@ -5,6 +5,7 @@ export interface UserRow extends RowDataPacket {
   userName: string;
   userEmail: string;
   profilePicture: string;
+  publicKey?: string | null;
 }
 
 export interface AppUser {
@@ -12,16 +13,18 @@ export interface AppUser {
   name: string;
   email: string;
   avatar: string;
+  /** SPKI PEM public key — included when the SELECT fetches the publicKey column. */
+  publicKey: string | null;
 }
 
 /**
- * Maps a raw SQL `Users` row to the shape the mobile app expects
- * (`_id`, `name`, `email`, `avatar`). The mobile client is written against
- * a Mongo-style schema, so SQL column names must be normalized here.
+ * Maps a raw SQL `Users` row to the shape the mobile app expects.
+ * `publicKey` is included when the query selects it (user search, chat participants).
  */
 export const mapUser = (row: UserRow): AppUser => ({
   _id: String(row.userID),
   name: row.userName,
   email: row.userEmail,
   avatar: row.profilePicture,
+  publicKey: row.publicKey ?? null,
 });

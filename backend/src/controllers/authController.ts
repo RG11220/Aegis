@@ -4,6 +4,7 @@ import { clerkClient, getAuth } from "@clerk/express";
 import _pool from "../config/database";
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { mapUser } from "../utils/mapUser";
+import { getUserById, storeUserKeys } from "../queries/userQueries";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const execute = (sql: string, params: any[]) => (_pool as any).execute(sql, params);
@@ -34,6 +35,68 @@ export async function getMe(req: AuthRequest, res: Response, next: NextFunction)
     }
 
     res.status(200).json(mapUser(user));
+  } catch (error) {
+    res.status(500);
+    next(error);
+  }
+}
+
+// GET /auth/crypto-keys — returns publicKey, encryptedPrivateKey, keySalt for the auth'd user
+// The server never decrypts anything — it only stores and returns these blobs.
+export async function getCryptoKeys(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const userID = parseInt(req.userId ?? "", 10);
+    if (isNaN(userID)) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const user = await getUserById(userID);
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    if (!user.publicKey || !user.privateKey || !user.keySalt) {
+      res.status(404).json({ message: "Crypto keys not initialised for this account" });
+      return;
+    }
+
+    res.status(200).json({
+      publicKey:          user.publicKey,
+      encryptedPrivateKey: user.privateKey,
+      keySalt:            user.keySalt,
+    });
+  } catch (error) {
+    res.status(500);
+    next(error);
+  }
+}
+
+// POST /auth/register-keys — stores the client-generated RSA public key and
+// encrypted private key blob. Called once right after account creation.
+// The server never sees the plaintext private key.
+export async function registerKeys(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const userID = parseInt(req.userId ?? "", 10);
+    if (isNaN(userID)) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const { publicKey, encryptedPrivateKey, keySalt } = req.body as {
+      publicKey?: string;
+      encryptedPrivateKey?: string;
+      keySalt?: string;
+    };
+
+    if (!publicKey || !encryptedPrivateKey || !keySalt) {
+      res.status(400).json({ message: "publicKey, encryptedPrivateKey, and keySalt are required" });
+      return;
+    }
+
+    await storeUserKeys(userID, publicKey, encryptedPrivateKey, keySalt);
+    res.status(200).json({ ok: true });
   } catch (error) {
     res.status(500);
     next(error);

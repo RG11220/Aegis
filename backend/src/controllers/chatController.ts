@@ -22,7 +22,7 @@ export async function getChats(req: AuthRequest, res: Response, next: NextFuncti
         const otherUserId = chat.participantIds.find((id) => id !== userId);
 
         const [rows] = await execute(
-          "SELECT userID, userName, userEmail, profilePicture FROM Users WHERE userID = ? LIMIT 1",
+          "SELECT userID, userName, userEmail, profilePicture, publicKey FROM Users WHERE userID = ? LIMIT 1",
           [otherUserId]
         ) as [UserRow[], unknown];
 
@@ -91,7 +91,7 @@ if (!userRows[0]) {
 
     // Fetch other participant from SQL
     const [rows] = await execute(
-      "SELECT userID, userName, userEmail, profilePicture FROM Users WHERE userID = ? LIMIT 1",
+      "SELECT userID, userName, userEmail, profilePicture, publicKey FROM Users WHERE userID = ? LIMIT 1",
       [targetUserId]
     ) as [UserRow[], unknown];
 

@@ -3,6 +3,8 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
+  /** SPKI PEM public key — present in user-search and chat-participant responses. */
+  publicKey: string | null;
 }
 
 export interface MessageSender {
@@ -10,6 +12,8 @@ export interface MessageSender {
   name: string;
   email: string;
   avatar: string;
+  /** SPKI PEM public key — used to verify RSA message signatures. */
+  publicKey: string | null;
 }
 
 /**
