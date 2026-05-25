@@ -6,7 +6,7 @@ import { useSocketStore } from "@/lib/socket";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -16,9 +16,11 @@ import {
   Platform,
   ActivityIndicator,
   TextInput,
+  Alert,
 } from "react-native";
-
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
+import type { Chat } from "@/types";
 
 type ChatParams = {
   id: string;
@@ -34,6 +36,7 @@ const ChatDetailScreen = () => {
   const [isSending, setIsSending] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
+  const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const { data: messages, isLoading } = useMessages(chatId);
 
@@ -44,6 +47,15 @@ const ChatDetailScreen = () => {
   const isTyping = typingUsers.get(chatId) === participantId;
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Resolve the participant's public key from the chats cache.
+  // This avoids passing a long PEM through route params and updates when the
+  // chats cache changes.
+  const chats = queryClient.getQueryData<Chat[]>(["chats"]);
+  const participantPublicKey = useMemo(() => {
+    const chat = chats?.find((c) => c._id === chatId);
+    return chat?.participant.publicKey ?? null;
+  }, [chatId, chats]);
 
   // join chat room on mount, leave on unmount
   useEffect(() => {
@@ -69,21 +81,17 @@ const ChatDetailScreen = () => {
 
       if (!isConnected || !chatId) return;
 
-      // send typing start
       if (text.length > 0) {
         sendTyping(chatId, true);
 
-        // clear existing timeout
         if (typingTimeoutRef.current) {
           clearTimeout(typingTimeoutRef.current);
         }
 
-        // stop typing after 2 seconds of no input
         typingTimeoutRef.current = setTimeout(() => {
           sendTyping(chatId, false);
         }, 2000);
       } else {
-        // text cleared, stop typing
         if (typingTimeoutRef.current) {
           clearTimeout(typingTimeoutRef.current);
         }
@@ -93,29 +101,62 @@ const ChatDetailScreen = () => {
     [chatId, isConnected, sendTyping]
   );
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!messageText.trim() || isSending || !isConnected || !currentUser) return;
 
-    // stop typing indicator
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     sendTyping(chatId, false);
 
-    setIsSending(true);
-    sendMessage(chatId, messageText.trim(), {
-      _id: currentUser._id,
-      name: currentUser.name,
-      email: currentUser.email,
-      avatar: currentUser.avatar,
-      publicKey: currentUser.publicKey ?? null,
-    });
-    setMessageText("");
-    setIsSending(false);
+    const partPubKey = participantPublicKey;
+    if (!partPubKey || !participantId) {
+      Alert.alert(
+        "Can't send yet",
+        "The recipient's encryption key is not available. Please wait until the conversation is fully initialized."
+      );
+      return;
+    }
 
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    const recipients = [
+      { userId: currentUser._id, publicKeyPem: currentUser.publicKey },
+      { userId: participantId, publicKeyPem: partPubKey },
+    ].filter(
+      (r): r is { userId: string; publicKeyPem: string } => Boolean(r.publicKeyPem)
+    );
+
+    if (recipients.length < 2) {
+      Alert.alert(
+        "Can't send yet",
+        "Both participants need valid encryption keys before messages can be sent."
+      );
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      await sendMessage(
+        chatId,
+        messageText.trim(),
+        {
+          _id: currentUser._id,
+          name: currentUser.name,
+          email: currentUser.email,
+          avatar: currentUser.avatar,
+          publicKey: currentUser.publicKey ?? null,
+        },
+        recipients
+      );
+      setMessageText("");
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    } catch (sendError: any) {
+      const message = sendError?.message ?? "Message failed to send.";
+      Alert.alert("Send failed", message);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -146,8 +187,6 @@ const ChatDetailScreen = () => {
         </View>
       </View>
 
-      {/* Message + Keyboard input */}
-
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -175,10 +214,22 @@ const ChatDetailScreen = () => {
               }}
             >
               {messages.map((message) => {
-                const senderId = message.senderId;
-                const isFromMe = currentUser ? senderId === currentUser._id : false;
+                const isFromMe = currentUser ? message.senderId === currentUser._id : false;
 
-                return <MessageBubble key={message._id} message={message} isFromMe={isFromMe} />;
+                // Determine the sender's public key for signature verification
+                const senderPublicKey = isFromMe
+                  ? (currentUser?.publicKey ?? null)
+                  : participantPublicKey;
+
+                return (
+                  <MessageBubble
+                    key={message._id}
+                    message={message}
+                    isFromMe={isFromMe}
+                    senderPublicKeyPem={senderPublicKey}
+                    myUserId={currentUser?._id ?? ""}
+                  />
+                );
               })}
             </ScrollView>
           )}

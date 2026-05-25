@@ -24,9 +24,17 @@ interface CryptoSession {
   privateKeyPem: string | null;
   /** SPKI PEM public key — populated alongside privateKeyPem. */
   publicKeyPem: string | null;
+  /**
+   * True when sign-in succeeded but key decryption failed (wrong password after
+   * a Clerk password reset). The user needs to go through the seed-phrase recovery
+   * flow to re-encrypt their private key with the new password.
+   */
+  keyLoadFailed: boolean;
 
   /** Store both keys after a successful unlock. */
   setKeys: (privateKeyPem: string, publicKeyPem: string) => void;
+  /** Mark that key decryption failed so the recovery prompt is shown. */
+  setKeyLoadFailed: (failed: boolean) => void;
   /** Wipe keys from memory (call on sign-out or app background). */
   clear: () => void;
 }
@@ -34,9 +42,12 @@ interface CryptoSession {
 export const useCryptoSession = create<CryptoSession>((set) => ({
   privateKeyPem: null,
   publicKeyPem:  null,
+  keyLoadFailed: false,
 
   setKeys: (privateKeyPem, publicKeyPem) =>
-    set({ privateKeyPem, publicKeyPem }),
+    set({ privateKeyPem, publicKeyPem, keyLoadFailed: false }),
 
-  clear: () => set({ privateKeyPem: null, publicKeyPem: null }),
+  setKeyLoadFailed: (failed) => set({ keyLoadFailed: failed }),
+
+  clear: () => set({ privateKeyPem: null, publicKeyPem: null, keyLoadFailed: false }),
 }));

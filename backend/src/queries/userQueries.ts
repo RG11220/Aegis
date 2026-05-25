@@ -86,6 +86,26 @@ export const storeUserKeys = async (
   );
 };
 
+/**
+ * Provision a user's full crypto set in one update: hashed password, public key,
+ * encrypted private key, key salt, and mark the account verified (email was already
+ * confirmed via the auth provider before this runs).
+ */
+export const provisionUserCrypto = async (
+  userID: number,
+  hashedPassword: string,
+  publicKey: string,
+  encryptedPrivateKey: string,
+  keySalt: string
+): Promise<void> => {
+  await execute(
+    `UPDATE Users
+     SET userPassword = ?, publicKey = ?, privateKey = ?, keySalt = ?, isVerified = 1
+     WHERE userID = ?`,
+    [hashedPassword, publicKey, encryptedPrivateKey, keySalt, userID]
+  );
+};
+
 export const updateEncryptedPrivateKey = async (
   userID: number,
   encryptedPrivateKey: string,

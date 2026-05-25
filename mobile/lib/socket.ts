@@ -1,9 +1,13 @@
 import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
 import { QueryClient } from "@tanstack/react-query";
+import { Alert } from "react-native";
 import { Chat, Message, MessageSender } from "@/types";
 import * as Sentry from "@sentry/react-native";
 import { SOCKET_URL } from "./config";
+import type { Recipient } from "./crypto/message/EncryptMessage";
+import { encryptMessage } from "./crypto/message/EncryptMessage";
+import { useCryptoSession } from "./cryptoSession";
 
 export interface SocketState {
   socket: Socket | null;
@@ -15,11 +19,16 @@ export interface SocketState {
   currentChatId: string | null;
   queryClient: QueryClient | null;
 
-  connect: (token: string, queryClient: QueryClient) => void;
+  connect: (getToken: () => Promise<string | null>, queryClient: QueryClient) => void;
   disconnect: () => void;
   joinChat: (chatId: string) => void;
   leaveChat: (chatId: string) => void;
-  sendMessage: (chatId: string, text: string, currentUser: MessageSender) => void;
+  sendMessage: (
+    chatId: string,
+    plaintext: string,
+    currentUser: MessageSender,
+    recipients: Recipient[]
+  ) => Promise<void>;
   sendTyping: (chatId: string, isTyping: boolean) => void;
 }
 
@@ -33,14 +42,22 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   currentChatId: null,
   queryClient: null,
 
-  connect: (token, queryClient) => {
+  connect: (getToken, queryClient) => {
     const existingSocket = get().socket;
     if (existingSocket?.connected || get().isConnecting) return;
 
     if (existingSocket) existingSocket.disconnect();
     set({ isConnecting: true });
 
-    const socket = io(SOCKET_URL, { auth: { token } });
+    // Function-form auth: called on every connect/reconnect attempt so the
+    // token is always fresh — Clerk JWTs are short-lived and would otherwise
+    // expire between reconnection retries.
+    const socket = io(SOCKET_URL, {
+      auth: async (cb: (data: { token: string | null }) => void) => {
+        const token = await getToken();
+        cb({ token });
+      },
+    });
 
     socket.on("connect", () => {
       console.log("Socket connected, id:", socket.id);
@@ -90,20 +107,30 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       });
     });
 
-    socket.on("new-message", (message: Message) => {
+    // message-ack: server confirmed send; swap the optimistic entry by tempId
+    socket.on(
+      "message-ack",
+      ({ tempId, messageId, chatId }: { tempId: string; messageId: string; chatId: string }) => {
+        queryClient.setQueryData<Message[]>(["messages", chatId], (old) =>
+          old?.map((m) => (m._id === tempId ? { ...m, _id: messageId } : m)) ?? []
+        );
+      }
+    );
+
+    socket.on("new-message", (message: Message & { originalTempId?: string }) => {
       const senderId = message.senderId;
       const { currentChatId } = get();
 
-      // add message to the chat's message list, replacing optimistic messages
+      // Add the real encrypted message, removing any matching optimistic entry
       queryClient.setQueryData<Message[]>(["messages", message.chat], (old) => {
         if (!old) return [message];
-        // remove any optimistic messages (temp IDs) and add the real one
-        const filtered = old.filter((m) => !m._id.startsWith("temp-"));
-        if (filtered.some((m) => m._id === message._id)) return filtered;
+        const filtered = message.originalTempId
+          ? old.filter((m) => m._id !== message.originalTempId)
+          : old;
         return [...filtered, message];
       });
 
-      // Update chat's lastMessage directly for instant UI update
+      // Update chat's lastMessage — no plaintext available; show placeholder
       queryClient.setQueryData<Chat[]>(["chats"], (oldChats) => {
         return oldChats?.map((chat) => {
           if (chat._id === message.chat) {
@@ -111,7 +138,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
               ...chat,
               lastMessage: {
                 _id: message._id,
-                text: message.text,
+                // text is undefined for encrypted messages — UI shows "New message"
                 sender: senderId,
                 createdAt: message.createdAt,
               },
@@ -191,47 +218,78 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       socket.emit("leave-chat", chatId);
     }
   },
-  sendMessage: (chatId, text, currentUser) => {
+  sendMessage: async (chatId, plaintext, currentUser, recipients) => {
     const { socket, queryClient } = get();
-    if (!socket?.connected || !queryClient) return;
+    if (!socket?.connected || !queryClient) {
+      throw new Error("Socket not connected or query client unavailable");
+    }
 
-    // optimistic updates
     const tempId = `temp-${Date.now()}`;
+
+    // Optimistic message: shows the plaintext immediately in the UI while the
+    // encrypted payload is in flight. It gets replaced by the real message once
+    // the server ACKs and broadcasts back.
     const optimisticMessage: Message = {
       _id: tempId,
       chat: chatId,
       senderId: currentUser._id,
-      text,
+      text: plaintext, // plaintext for local display only
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    // add optimistic message immediately
     queryClient.setQueryData<Message[]>(["messages", chatId], (old) => {
       if (!old) return [optimisticMessage];
       return [...old, optimisticMessage];
     });
 
-    const payload = { chatId, text, tempId };
+    const { privateKeyPem } = useCryptoSession.getState();
+    if (!privateKeyPem) {
+      Sentry.logger.error("Cannot send: crypto session not initialised", { chatId });
+      Alert.alert("Message failed to send", "Encryption unavailable. Please try again after unlocking your keys.");
+      queryClient.setQueryData<Message[]>(["messages", chatId], (old) =>
+        old?.filter((m) => m._id !== tempId) ?? []
+      );
+      throw new Error("Crypto session not initialised");
+    }
 
-    socket.emit("send-message", payload, (response: { error?: string; messageId?: string }) => {
-      if (response?.error) {
-        Sentry.logger.error("Failed to send message", {
+    let encryptedPayload: ReturnType<typeof encryptMessage>;
+    try {
+      encryptedPayload = encryptMessage(plaintext, currentUser._id, chatId, privateKeyPem, recipients);
+    } catch (err) {
+      Sentry.logger.error("Encryption failed", { chatId, error: String(err) });
+      Alert.alert("Message failed to send", "Message encryption failed. Please try again.");
+      queryClient.setQueryData<Message[]>(["messages", chatId], (old) =>
+        old?.filter((m) => m._id !== tempId) ?? []
+      );
+      throw err;
+    }
+
+    const payload = { chatId, ...encryptedPayload, tempId };
+
+    await new Promise<void>((resolve, reject) => {
+      socket.emit("send-message", payload, (response: { error?: string; messageId?: string }) => {
+        if (response?.error) {
+          Sentry.logger.error("Failed to send message", {
+            chatId,
+            error: response.error,
+            tempId,
+          });
+          Alert.alert("Message failed to send", response.error ?? "An unknown error occurred.");
+          queryClient.setQueryData<Message[]>(["messages", chatId], (old) => {
+            if (!old) return [];
+            return old.filter((m) => m._id !== (response.messageId ?? tempId));
+          });
+          reject(new Error(response.error ?? "Message send failed"));
+          return;
+        }
+
+        Sentry.logger.info("Message sent successfully", {
           chatId,
-          error: response.error,
+          messageLength: plaintext.length,
           tempId,
         });
-        queryClient.setQueryData<Message[]>(["messages", chatId], (old) => {
-          if (!old) return [];
-          return old.filter((m) => m._id !== (response.messageId ?? tempId));
-        });
-        return;
-      }
-
-      Sentry.logger.info("Message sent successfully", {
-        chatId,
-        messageLength: text.length,
-        tempId,
+        resolve();
       });
     });
   },
