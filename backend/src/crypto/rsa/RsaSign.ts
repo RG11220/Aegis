@@ -28,7 +28,7 @@ import { parseSpkiPem, parsePkcs8Pem } from "./RsaDerParse";
  *     30 0d                  SEQUENCE (13 bytes) — AlgorithmIdentifier
  *       06 09 60 86 48 01 65 03 04 02 01   OID SHA-256 (2.16.840.1.101.3.4.2.1)
  *       05 00                              NULL
- *     04 20                BIT STRING (32 bytes) — the hash follows
+ *     04 20                OCTET STRING (32 bytes) — the hash follows
  */
 const SHA256_DIGEST_INFO_PREFIX = new Uint8Array([
   0x30, 0x31,

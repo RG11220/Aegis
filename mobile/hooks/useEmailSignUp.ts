@@ -13,6 +13,7 @@
  * handleVerify (two separate user interactions). It is never persisted.
  */
 
+import { InteractionManager } from "react-native";
 import { useSignUp } from "@clerk/clerk-expo";
 import { useRef, useState } from "react";
 import { useApi } from "@/lib/axios";
@@ -69,11 +70,22 @@ function useEmailSignUp() {
         try {
           const password = passwordRef.current;
 
-          // 1. Generate a fresh RSA-2048 keypair (~200-800 ms).
-          const { publicKeyPem, privateKeyPem } = await generateRandomRSAKeyPair();
-
-          // 2. Encrypt the private key with the user's password (PBKDF2 + ChaCha20).
-          const { encryptedPrivateKey, keySalt } = encryptPrivateKey(privateKeyPem, password);
+          const { publicKeyPem, privateKeyPem, encryptedPrivateKey, keySalt } = await new Promise<{
+            publicKeyPem: string;
+            privateKeyPem: string;
+            encryptedPrivateKey: string;
+            keySalt: string;
+          }>((resolve, reject) => {
+            InteractionManager.runAfterInteractions(async () => {
+              try {
+                const { publicKeyPem, privateKeyPem } = await generateRandomRSAKeyPair();
+                const { encryptedPrivateKey, keySalt } = encryptPrivateKey(privateKeyPem, password);
+                resolve({ publicKeyPem, privateKeyPem, encryptedPrivateKey, keySalt });
+              } catch (err) {
+                reject(err);
+              }
+            });
+          });
 
           // 3. POST to backend — server stores the encrypted blob + public key.
           await apiWithAuth({

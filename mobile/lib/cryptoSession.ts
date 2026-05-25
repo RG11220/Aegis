@@ -7,7 +7,7 @@
  *
  * Usage:
  *   // After unlocking:
- *   useCryptoSession.getState().setPrivateKey(decryptedPem);
+ *   useCryptoSession.getState().setKeys(privateKeyPem, publicKeyPem);
  *
  *   // In crypto operations:
  *   const { privateKeyPem } = useCryptoSession();

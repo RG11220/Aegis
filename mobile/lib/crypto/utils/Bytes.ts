@@ -28,7 +28,11 @@ export function hexToBytes(hex: string): Uint8Array {
   if (hex.length % 2 !== 0) throw new Error("hexToBytes: odd-length hex string");
   const out = new Uint8Array(hex.length / 2);
   for (let i = 0; i < out.length; i++) {
-    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    const pair = hex.slice(i * 2, i * 2 + 2);
+    if (!/^[0-9a-fA-F]{2}$/.test(pair)) {
+      throw new Error(`hexToBytes: invalid hex pair "${pair}" at index ${i}`);
+    }
+    out[i] = parseInt(pair, 16);
   }
   return out;
 }

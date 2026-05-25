@@ -95,6 +95,17 @@ export async function registerKeys(req: AuthRequest, res: Response, next: NextFu
       return;
     }
 
+    const existingUser = await getUserById(userID);
+    if (!existingUser) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    if (existingUser.publicKey || existingUser.privateKey || existingUser.keySalt) {
+      res.status(409).json({ message: "Crypto keys already registered for this account" });
+      return;
+    }
+
     await storeUserKeys(userID, publicKey, encryptedPrivateKey, keySalt);
     res.status(200).json({ ok: true });
   } catch (error) {

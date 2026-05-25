@@ -42,6 +42,13 @@ export function pbkdf2(
   const passwordBytes =
     typeof password === "string" ? new TextEncoder().encode(password) : password;
 
+  if (!Number.isInteger(iterations) || iterations <= 0) {
+    throw new RangeError("pbkdf2: iterations must be a positive integer");
+  }
+  if (!Number.isInteger(keyLength) || keyLength <= 0) {
+    throw new RangeError("pbkdf2: keyLength must be a positive integer");
+  }
+
   const hashLen = 32; // HMAC-SHA256 output is 32 bytes
   const blocksNeeded = Math.ceil(keyLength / hashLen);
   const result = new Uint8Array(keyLength);

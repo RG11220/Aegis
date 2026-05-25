@@ -13,7 +13,7 @@
 import { useSignIn } from "@clerk/clerk-expo";
 import { useState } from "react";
 import { useApi } from "@/lib/axios";
-import { decryptPrivateKey } from "@/lib/crypto/password/Encryptprivatekey";
+import { decryptPrivateKeyAsync } from "@/lib/crypto/password/Encryptprivatekey";
 import { useCryptoSession } from "@/lib/cryptoSession";
 
 interface CryptoKeysResponse {
@@ -55,7 +55,7 @@ function useEmailSignIn() {
 
           // 3. Decrypt the private key with the same password the user just typed.
           //    PBKDF2 at 310k iterations — takes ~1-3 s on device.
-          const privateKeyPem = decryptPrivateKey(
+          const privateKeyPem = await decryptPrivateKeyAsync(
             data.encryptedPrivateKey,
             data.keySalt,
             password
