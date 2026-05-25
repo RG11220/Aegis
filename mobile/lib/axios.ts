@@ -2,12 +2,7 @@ import axios from "axios";
 import * as Sentry from "@sentry/react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useCallback } from "react";
-
-const API_URL = "http://10.0.0.1:3000/api"; // change!!!!!!!!!!!!
-
-
-
-// this is the same thing we did with useEffect setup but it's optimized version - it's better!!
+import { API_URL } from "./config";
 
 const api = axios.create({
   baseURL: API_URL,
