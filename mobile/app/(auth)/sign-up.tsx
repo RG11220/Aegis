@@ -13,6 +13,11 @@ const SignUpScreen = () => {
   const { apiWithAuth } = useApi()
   const setKeys = useCryptoSession((s) => s.setKeys)
 
+  // This screen uses server-side provisioning of RSA keys via /auth/provision-keys.
+  // The mobile hook useEmailSignUp contains an alternate client-side generator but
+  // is not currently active because on-device RSA-2048 generation can freeze the
+  // JS thread on lower-end devices.
+
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

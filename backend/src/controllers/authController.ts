@@ -107,18 +107,12 @@ export async function registerKeys(req: AuthRequest, res: Response, next: NextFu
         res.status(400).json({ message: "seedPhrase must be an array of exactly 24 words" });
         return;
       }
-      const seen = new Set<string>();
       for (const word of seedPhrase) {
         const w = typeof word === "string" ? word.toLowerCase().trim() : "";
         if (!WORD_SET.has(w)) {
           res.status(400).json({ message: `Unknown word in seed phrase: "${word}"` });
           return;
         }
-        if (seen.has(w)) {
-          res.status(400).json({ message: `Duplicate word in seed phrase: "${word}"` });
-          return;
-        }
-        seen.add(w);
       }
     }
 
@@ -170,6 +164,14 @@ export async function provisionKeys(req: AuthRequest, res: Response, next: NextF
     const { password } = req.body as { password?: string };
     if (!password || typeof password !== "string") {
       res.status(400).json({ message: "password is required" });
+      return;
+    }
+
+    if (password.length < 8 || !/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(password)) {
+      res.status(400).json({
+        message:
+          "Password must be at least 8 characters long and include both letters and numbers.",
+      });
       return;
     }
 

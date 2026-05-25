@@ -140,10 +140,12 @@ export const initializeSocket = (httpServer: HttpServer) => {
           signature: message.signature,
           createdAt: message.createdAt,
           updatedAt: message.updatedAt,
+          originalTempId: tempId,
         };
 
-        // ACK the sender with the real message ID so they can swap the optimistic entry
-        socket.emit("message-ack", { tempId, messageId: message._id });
+        // ACK the sender with the real message ID and chatId so cached messages
+        // can be updated without relying on a stale currentChatId.
+        socket.emit("message-ack", { tempId, messageId: message._id, chatId });
 
         const chatRoom = io.sockets.adapter.rooms.get(`chat:${chatId}`);
 

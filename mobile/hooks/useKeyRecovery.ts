@@ -32,6 +32,8 @@ function useKeyRecovery() {
     words: string[],
     password: string
   ): Promise<string | undefined> => {
+    // apiWithAuth validates the base URL/protocol before sending; the seed phrase
+    // is only posted over an HTTPS/TLS connection when this app is built for prod.
     if (words.length !== 24) return "Please enter all 24 words";
     if (!password)           return "Password is required";
 

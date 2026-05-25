@@ -32,10 +32,9 @@ const AuthSync = () => {
     if (!isLoaded) return;
 
     if (isSignedIn && user && !hasSynced.current) {
-      hasSynced.current = true;
-
       syncUser(undefined, {
         onSuccess: (data) => {
+          hasSynced.current = true;
           console.log(" User synced with backend:", data.name);
           Sentry.logger.info(Sentry.logger.fmt`User synced: ${data.name}`, {
             userId: user.id,
@@ -46,6 +45,7 @@ const AuthSync = () => {
           connect(getToken, queryClient);
         },
         onError: (error) => {
+          hasSynced.current = false;
           console.log("❌ User sync failed:", error);
           Sentry.logger.error("Failed to sync user with backend", {
             userId: user.id,

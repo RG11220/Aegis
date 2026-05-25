@@ -4,6 +4,14 @@ import { useMemo } from "react";
 import { useCryptoSession } from "@/lib/cryptoSession";
 import { decryptMessage } from "@/lib/crypto/message/DecryptMessage";
 
+const getUserFriendlyDecryptionError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/signature/i.test(message)) return "Invalid signature";
+  if (/missing|not loaded|no private key/i.test(message)) return "Missing decryption key";
+  if (/cipher|decrypt|decryption/i.test(message)) return "Could not decrypt message";
+  return "Decryption failed";
+};
+
 interface MessageBubbleProps {
   message: Message;
   isFromMe: boolean;
@@ -40,8 +48,7 @@ function MessageBubble({ message, isFromMe, senderPublicKeyPem, myUserId }: Mess
           myPrivateKeyPem: privateKeyPem,
         });
       } catch (e: any) {
-        // Surface the specific failure (signature / missing key / cipher) for debugging.
-        return `⚠️ ${e?.message ?? "Decryption failed"}`;
+        return `⚠️ ${getUserFriendlyDecryptionError(e)}`;
       }
     }
 

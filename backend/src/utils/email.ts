@@ -21,6 +21,18 @@ const FROM_EMAIL = process.env.FROM_EMAIL ?? "onboarding@resend.dev";
  *  - Why they must keep them safe
  *  - How to use them to recover their account
  */
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"'`]/g, (char) =>
+    ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+      '`': '&#96;',
+    } as Record<string, string>)[char]
+  );
+
 export async function sendSeedPhraseEmail(
   toEmail: string,
   userName: string,
@@ -66,7 +78,7 @@ export async function sendSeedPhraseEmail(
         <tr>
           <td style="padding:32px 40px;">
             <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#c0c0c0;">
-              Hi ${userName},
+              Hi ${escapeHtml(userName)},
             </p>
             <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#c0c0c0;">
               Your Aegis account was created successfully. Below are your <strong style="color:#fff;">24 recovery words</strong>.

@@ -19,11 +19,14 @@ import { InteractionManager } from "react-native";
 import { useSignUp } from "@clerk/clerk-expo";
 import { useRef, useState } from "react";
 import { useApi } from "@/lib/axios";
+import { API_URL } from "@/lib/config";
 import { generateRSAKeyPairFromSeed, generateSeedPhrase } from "@/lib/crypto/rsa/RsaFromSeed";
 import { encryptPrivateKey } from "@/lib/crypto/password/Encryptprivatekey";
 import { useCryptoSession } from "@/lib/cryptoSession";
 
 function useEmailSignUp() {
+  // NOTE: The current mobile sign-up screen opts for server-side key provisioning
+  // via /auth/provision-keys to avoid on-device RSA generation stalls.
   const { signUp, setActive, isLoaded } = useSignUp();
   const { apiWithAuth } = useApi();
   const setKeys = useCryptoSession((s) => s.setKeys);
@@ -58,8 +61,16 @@ function useEmailSignUp() {
     }
   };
 
+  const isSecureApiUrl = () => {
+    const isProd = typeof __DEV__ === "boolean" ? !__DEV__ : process.env.NODE_ENV === "production";
+    return !isProd || API_URL.toLowerCase().startsWith("https://");
+  };
+
   const handleVerify = async (code: string): Promise<string | undefined> => {
     if (!isLoaded) return;
+    if (!isSecureApiUrl()) {
+      throw new Error("Insecure API_URL configured; HTTPS is required for auth operations.");
+    }
 
     setLoading(true);
     try {

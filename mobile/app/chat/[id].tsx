@@ -6,7 +6,7 @@ import { useSocketStore } from "@/lib/socket";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -49,13 +49,13 @@ const ChatDetailScreen = () => {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Resolve the participant's public key from the chats cache.
-  // This avoids passing a long PEM through route params.
-  const participantPublicKey = useRef<string | null>(null);
-  useEffect(() => {
-    const chats = queryClient.getQueryData<Chat[]>(["chats"]);
+  // This avoids passing a long PEM through route params and updates when the
+  // chats cache changes.
+  const chats = queryClient.getQueryData<Chat[]>(["chats"]);
+  const participantPublicKey = useMemo(() => {
     const chat = chats?.find((c) => c._id === chatId);
-    participantPublicKey.current = chat?.participant.publicKey ?? null;
-  }, [chatId, queryClient]);
+    return chat?.participant.publicKey ?? null;
+  }, [chatId, chats]);
 
   // join chat room on mount, leave on unmount
   useEffect(() => {
@@ -101,7 +101,7 @@ const ChatDetailScreen = () => {
     [chatId, isConnected, sendTyping]
   );
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!messageText.trim() || isSending || !isConnected || !currentUser) return;
 
     if (typingTimeoutRef.current) {
@@ -109,47 +109,54 @@ const ChatDetailScreen = () => {
     }
     sendTyping(chatId, false);
 
-    // Build the recipient list: always include both the sender (so they can
-    // re-read their own messages) and the participant.
-    const recipients = [];
-
-    if (currentUser.publicKey) {
-      recipients.push({ userId: currentUser._id, publicKeyPem: currentUser.publicKey });
-    }
-
-    const partPubKey = participantPublicKey.current;
-    if (partPubKey && participantId) {
-      recipients.push({ userId: participantId, publicKeyPem: partPubKey });
-    }
-
-    if (recipients.length === 0) {
-      // No public keys available → can't encrypt. Tell the user instead of failing silently.
+    const partPubKey = participantPublicKey;
+    if (!partPubKey || !participantId) {
       Alert.alert(
         "Can't send yet",
-        "Encryption keys aren't set up for this conversation. Both people need an account created with email + password — Google logins don't have keys provisioned yet."
+        "The recipient's encryption key is not available. Please wait until the conversation is fully initialized."
+      );
+      return;
+    }
+
+    const recipients = [
+      { userId: currentUser._id, publicKeyPem: currentUser.publicKey },
+      { userId: participantId, publicKeyPem: partPubKey },
+    ].filter(
+      (r): r is { userId: string; publicKeyPem: string } => Boolean(r.publicKeyPem)
+    );
+
+    if (recipients.length < 2) {
+      Alert.alert(
+        "Can't send yet",
+        "Both participants need valid encryption keys before messages can be sent."
       );
       return;
     }
 
     setIsSending(true);
-    sendMessage(
-      chatId,
-      messageText.trim(),
-      {
-        _id: currentUser._id,
-        name: currentUser.name,
-        email: currentUser.email,
-        avatar: currentUser.avatar,
-        publicKey: currentUser.publicKey ?? null,
-      },
-      recipients
-    );
-    setMessageText("");
-    setIsSending(false);
-
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    try {
+      await sendMessage(
+        chatId,
+        messageText.trim(),
+        {
+          _id: currentUser._id,
+          name: currentUser.name,
+          email: currentUser.email,
+          avatar: currentUser.avatar,
+          publicKey: currentUser.publicKey ?? null,
+        },
+        recipients
+      );
+      setMessageText("");
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    } catch (sendError: any) {
+      const message = sendError?.message ?? "Message failed to send.";
+      Alert.alert("Send failed", message);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -212,7 +219,7 @@ const ChatDetailScreen = () => {
                 // Determine the sender's public key for signature verification
                 const senderPublicKey = isFromMe
                   ? (currentUser?.publicKey ?? null)
-                  : participantPublicKey.current;
+                  : participantPublicKey;
 
                 return (
                   <MessageBubble

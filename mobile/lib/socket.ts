@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { io, Socket } from "socket.io-client";
 import { QueryClient } from "@tanstack/react-query";
+import { Alert } from "react-native";
 import { Chat, Message, MessageSender } from "@/types";
 import * as Sentry from "@sentry/react-native";
 import { SOCKET_URL } from "./config";
@@ -27,7 +28,7 @@ export interface SocketState {
     plaintext: string,
     currentUser: MessageSender,
     recipients: Recipient[]
-  ) => void;
+  ) => Promise<void>;
   sendTyping: (chatId: string, isTyping: boolean) => void;
 }
 
@@ -107,24 +108,25 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     });
 
     // message-ack: server confirmed send; swap the optimistic entry by tempId
-    socket.on("message-ack", ({ tempId, messageId }: { tempId: string; messageId: string }) => {
-      // The real message will arrive via new-message; just remove the temp entry
-      // so we don't display a duplicate when the broadcast comes in.
-      queryClient.setQueryData<Message[]>(["messages", get().currentChatId ?? ""], (old) =>
-        old?.map((m) => (m._id === tempId ? { ...m, _id: messageId } : m)) ?? []
-      );
-    });
+    socket.on(
+      "message-ack",
+      ({ tempId, messageId, chatId }: { tempId: string; messageId: string; chatId: string }) => {
+        queryClient.setQueryData<Message[]>(["messages", chatId], (old) =>
+          old?.map((m) => (m._id === tempId ? { ...m, _id: messageId } : m)) ?? []
+        );
+      }
+    );
 
-    socket.on("new-message", (message: Message) => {
+    socket.on("new-message", (message: Message & { originalTempId?: string }) => {
       const senderId = message.senderId;
       const { currentChatId } = get();
 
       // Add the real encrypted message, removing any matching optimistic entry
       queryClient.setQueryData<Message[]>(["messages", message.chat], (old) => {
         if (!old) return [message];
-        const filtered = old.filter(
-          (m) => !m._id.startsWith("temp-") && m._id !== message._id
-        );
+        const filtered = message.originalTempId
+          ? old.filter((m) => m._id !== message.originalTempId)
+          : old;
         return [...filtered, message];
       });
 
@@ -216,9 +218,11 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       socket.emit("leave-chat", chatId);
     }
   },
-  sendMessage: (chatId, plaintext, currentUser, recipients) => {
+  sendMessage: async (chatId, plaintext, currentUser, recipients) => {
     const { socket, queryClient } = get();
-    if (!socket?.connected || !queryClient) return;
+    if (!socket?.connected || !queryClient) {
+      throw new Error("Socket not connected or query client unavailable");
+    }
 
     const tempId = `temp-${Date.now()}`;
 
@@ -239,15 +243,14 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       return [...old, optimisticMessage];
     });
 
-    // Encrypt the message — the server never sees plaintext.
     const { privateKeyPem } = useCryptoSession.getState();
     if (!privateKeyPem) {
       Sentry.logger.error("Cannot send: crypto session not initialised", { chatId });
-      // Roll back the optimistic update
+      Alert.alert("Message failed to send", "Encryption unavailable. Please try again after unlocking your keys.");
       queryClient.setQueryData<Message[]>(["messages", chatId], (old) =>
         old?.filter((m) => m._id !== tempId) ?? []
       );
-      return;
+      throw new Error("Crypto session not initialised");
     }
 
     let encryptedPayload: ReturnType<typeof encryptMessage>;
@@ -255,32 +258,38 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       encryptedPayload = encryptMessage(plaintext, currentUser._id, chatId, privateKeyPem, recipients);
     } catch (err) {
       Sentry.logger.error("Encryption failed", { chatId, error: String(err) });
+      Alert.alert("Message failed to send", "Message encryption failed. Please try again.");
       queryClient.setQueryData<Message[]>(["messages", chatId], (old) =>
         old?.filter((m) => m._id !== tempId) ?? []
       );
-      return;
+      throw err;
     }
 
     const payload = { chatId, ...encryptedPayload, tempId };
 
-    socket.emit("send-message", payload, (response: { error?: string; messageId?: string }) => {
-      if (response?.error) {
-        Sentry.logger.error("Failed to send message", {
+    await new Promise<void>((resolve, reject) => {
+      socket.emit("send-message", payload, (response: { error?: string; messageId?: string }) => {
+        if (response?.error) {
+          Sentry.logger.error("Failed to send message", {
+            chatId,
+            error: response.error,
+            tempId,
+          });
+          Alert.alert("Message failed to send", response.error ?? "An unknown error occurred.");
+          queryClient.setQueryData<Message[]>(["messages", chatId], (old) => {
+            if (!old) return [];
+            return old.filter((m) => m._id !== (response.messageId ?? tempId));
+          });
+          reject(new Error(response.error ?? "Message send failed"));
+          return;
+        }
+
+        Sentry.logger.info("Message sent successfully", {
           chatId,
-          error: response.error,
+          messageLength: plaintext.length,
           tempId,
         });
-        queryClient.setQueryData<Message[]>(["messages", chatId], (old) => {
-          if (!old) return [];
-          return old.filter((m) => m._id !== (response.messageId ?? tempId));
-        });
-        return;
-      }
-
-      Sentry.logger.info("Message sent successfully", {
-        chatId,
-        messageLength: plaintext.length,
-        tempId,
+        resolve();
       });
     });
   },
