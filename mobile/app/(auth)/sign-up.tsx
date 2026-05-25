@@ -1,13 +1,17 @@
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native'
 import React, { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useSignUp } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
+import { useApi } from '@/lib/axios'
+import { useCryptoSession } from '@/lib/cryptoSession'
 
 const SignUpScreen = () => {
   const { signUp, setActive, isLoaded } = useSignUp()
   const router = useRouter()
+  const { apiWithAuth } = useApi()
+  const setKeys = useCryptoSession((s) => s.setKeys)
 
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -48,8 +52,33 @@ const SignUpScreen = () => {
       setLoading(true)
       setError('')
       const result = await signUp.attemptEmailAddressVerification({ code })
-      if (result.status === 'complete') {
+      if (result.status === 'complete' && setActive) {
         await setActive({ session: result.createdSessionId })
+
+        // Provision E2E keys on the SERVER (RSA-2048 keygen is too slow on-device).
+        // The backend generates + stores the keypair and emails the recovery words,
+        // then returns the keys so we can hold them in memory for this session.
+        // Failures are surfaced (Alert + inline error) rather than swallowed.
+        try {
+          // Ensure the SQL user row exists first — provision-keys is protected and
+          // looks the user up by clerkId. authCallback upserts, so it's safe to call.
+          await apiWithAuth({ method: 'POST', url: '/auth/callback' })
+
+          const { data } = await apiWithAuth<{ publicKey: string; privateKey: string }>({
+            method: 'POST',
+            url: '/auth/provision-keys',
+            data: { password },
+          })
+
+          // Hold the keys in memory for this session.
+          setKeys(data.privateKey, data.publicKey)
+        } catch (cryptoErr: any) {
+          const msg =
+            cryptoErr?.response?.data?.message ?? cryptoErr?.message ?? String(cryptoErr)
+          console.error('[Crypto] Key provisioning failed:', cryptoErr)
+          Alert.alert('Encryption setup failed', msg)
+          setError(`Encryption setup failed: ${msg}`)
+        }
       }
     } catch (err: any) {
       setError(err.errors?.[0]?.longMessage ?? 'Invalid code. Please try again.')

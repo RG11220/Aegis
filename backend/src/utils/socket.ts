@@ -82,9 +82,22 @@ export const initializeSocket = (httpServer: HttpServer) => {
       socket.leave(`chat:${chatId}`);
     });
 
-    socket.on("send-message", async (data: { chatId: string; text: string }) => {
+    socket.on("send-message", async (data: {
+      chatId: string;
+      cipherText: string;
+      iv: string;
+      encryptedKeys: Record<string, string>;
+      signature: string;
+      tempId?: string;
+    }) => {
       try {
-        const { chatId, text } = data;
+        const { chatId, cipherText, iv, encryptedKeys, signature, tempId } = data;
+
+        // Basic field validation — server is a blind relay; it never reads cipherText
+        if (!chatId || !cipherText || !iv || !encryptedKeys || !signature) {
+          socket.emit("socket-error", { message: "Missing required encrypted fields" });
+          return;
+        }
 
         const chat = await Chat.findOne({
           _id: chatId,
@@ -96,17 +109,42 @@ export const initializeSocket = (httpServer: HttpServer) => {
           return;
         }
 
+        // Verify the sender has a key slot in encryptedKeys (must include themselves)
+        if (!encryptedKeys[userId]) {
+          socket.emit("socket-error", { message: "Sender key slot missing from encryptedKeys" });
+          return;
+        }
+
         const message = await Message.create({
           chat: chatId,
           senderId: userId,
-          text,
+          cipherText,
+          iv,
+          encryptedKeys: new Map(Object.entries(encryptedKeys)),
+          signature,
+          // text is intentionally omitted — server never stores plaintext
         });
 
         chat.lastMessage = message._id;
         chat.lastMessageAt = new Date();
         await chat.save();
 
-        // Fix 3: Track who's in the chat room to avoid double emission
+        // Serialise Map → plain object for JSON emission
+        const messagePayload = {
+          _id: message._id,
+          chat: message.chat,
+          senderId: message.senderId,
+          cipherText: message.cipherText,
+          iv: message.iv,
+          encryptedKeys: Object.fromEntries(message.encryptedKeys ?? new Map()),
+          signature: message.signature,
+          createdAt: message.createdAt,
+          updatedAt: message.updatedAt,
+        };
+
+        // ACK the sender with the real message ID so they can swap the optimistic entry
+        socket.emit("message-ack", { tempId, messageId: message._id });
+
         const chatRoom = io.sockets.adapter.rooms.get(`chat:${chatId}`);
 
         for (const participantId of chat.participantIds) {
@@ -118,11 +156,9 @@ export const initializeSocket = (httpServer: HttpServer) => {
           );
 
           if (isInChatRoom) {
-            // They're in the chat room — emit there only
-            io.to(`chat:${chatId}`).emit("new-message", message);
+            io.to(`chat:${chatId}`).emit("new-message", messagePayload);
           } else {
-            // They're online but not in the chat room — emit to personal room
-            io.to(`user:${participantId}`).emit("new-message", message);
+            io.to(`user:${participantId}`).emit("new-message", messagePayload);
           }
         }
       } catch {

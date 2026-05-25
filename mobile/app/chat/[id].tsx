@@ -16,9 +16,11 @@ import {
   Platform,
   ActivityIndicator,
   TextInput,
+  Alert,
 } from "react-native";
-
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
+import type { Chat } from "@/types";
 
 type ChatParams = {
   id: string;
@@ -34,6 +36,7 @@ const ChatDetailScreen = () => {
   const [isSending, setIsSending] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
+  const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
   const { data: messages, isLoading } = useMessages(chatId);
 
@@ -44,6 +47,15 @@ const ChatDetailScreen = () => {
   const isTyping = typingUsers.get(chatId) === participantId;
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Resolve the participant's public key from the chats cache.
+  // This avoids passing a long PEM through route params.
+  const participantPublicKey = useRef<string | null>(null);
+  useEffect(() => {
+    const chats = queryClient.getQueryData<Chat[]>(["chats"]);
+    const chat = chats?.find((c) => c._id === chatId);
+    participantPublicKey.current = chat?.participant.publicKey ?? null;
+  }, [chatId, queryClient]);
 
   // join chat room on mount, leave on unmount
   useEffect(() => {
@@ -69,21 +81,17 @@ const ChatDetailScreen = () => {
 
       if (!isConnected || !chatId) return;
 
-      // send typing start
       if (text.length > 0) {
         sendTyping(chatId, true);
 
-        // clear existing timeout
         if (typingTimeoutRef.current) {
           clearTimeout(typingTimeoutRef.current);
         }
 
-        // stop typing after 2 seconds of no input
         typingTimeoutRef.current = setTimeout(() => {
           sendTyping(chatId, false);
         }, 2000);
       } else {
-        // text cleared, stop typing
         if (typingTimeoutRef.current) {
           clearTimeout(typingTimeoutRef.current);
         }
@@ -96,20 +104,46 @@ const ChatDetailScreen = () => {
   const handleSend = () => {
     if (!messageText.trim() || isSending || !isConnected || !currentUser) return;
 
-    // stop typing indicator
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     sendTyping(chatId, false);
 
+    // Build the recipient list: always include both the sender (so they can
+    // re-read their own messages) and the participant.
+    const recipients = [];
+
+    if (currentUser.publicKey) {
+      recipients.push({ userId: currentUser._id, publicKeyPem: currentUser.publicKey });
+    }
+
+    const partPubKey = participantPublicKey.current;
+    if (partPubKey && participantId) {
+      recipients.push({ userId: participantId, publicKeyPem: partPubKey });
+    }
+
+    if (recipients.length === 0) {
+      // No public keys available → can't encrypt. Tell the user instead of failing silently.
+      Alert.alert(
+        "Can't send yet",
+        "Encryption keys aren't set up for this conversation. Both people need an account created with email + password — Google logins don't have keys provisioned yet."
+      );
+      return;
+    }
+
     setIsSending(true);
-    sendMessage(chatId, messageText.trim(), {
-      _id: currentUser._id,
-      name: currentUser.name,
-      email: currentUser.email,
-      avatar: currentUser.avatar,
-      publicKey: currentUser.publicKey ?? null,
-    });
+    sendMessage(
+      chatId,
+      messageText.trim(),
+      {
+        _id: currentUser._id,
+        name: currentUser.name,
+        email: currentUser.email,
+        avatar: currentUser.avatar,
+        publicKey: currentUser.publicKey ?? null,
+      },
+      recipients
+    );
     setMessageText("");
     setIsSending(false);
 
@@ -146,8 +180,6 @@ const ChatDetailScreen = () => {
         </View>
       </View>
 
-      {/* Message + Keyboard input */}
-
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -175,10 +207,22 @@ const ChatDetailScreen = () => {
               }}
             >
               {messages.map((message) => {
-                const senderId = message.senderId;
-                const isFromMe = currentUser ? senderId === currentUser._id : false;
+                const isFromMe = currentUser ? message.senderId === currentUser._id : false;
 
-                return <MessageBubble key={message._id} message={message} isFromMe={isFromMe} />;
+                // Determine the sender's public key for signature verification
+                const senderPublicKey = isFromMe
+                  ? (currentUser?.publicKey ?? null)
+                  : participantPublicKey.current;
+
+                return (
+                  <MessageBubble
+                    key={message._id}
+                    message={message}
+                    isFromMe={isFromMe}
+                    senderPublicKeyPem={senderPublicKey}
+                    myUserId={currentUser?._id ?? ""}
+                  />
+                );
               })}
             </ScrollView>
           )}

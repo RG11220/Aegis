@@ -3,6 +3,8 @@ import { View, Text, ScrollView, Pressable, Alert } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
+import { useRouter } from "expo-router";
+import { useCryptoSession } from "@/lib/cryptoSession";
 
 const MENU_SECTIONS = [
   {
@@ -34,6 +36,8 @@ const MENU_SECTIONS = [
 const settings = () => {
   const { signOut } = useAuth();
   const { user } = useUser();
+  const router = useRouter();
+  const keyLoadFailed = useCryptoSession((s) => s.keyLoadFailed);
   const [isUploading, setIsUploading] = useState(false);
 
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Anonymous";
@@ -109,6 +113,28 @@ const settings = () => {
           </View>
         </View>
       </View>
+
+      {/* KEY RECOVERY WARNING — shown when decryption failed after a password reset */}
+      {keyLoadFailed && (
+        <Pressable
+          onPress={() => router.push('/recover')}
+          className="mx-5 mt-6 rounded-2xl overflow-hidden active:opacity-80"
+          style={{ backgroundColor: '#3a2000', borderWidth: 1, borderColor: '#f4a26155' }}
+        >
+          <View className="flex-row items-center px-4 py-4 gap-3">
+            <View className="w-10 h-10 rounded-xl items-center justify-center" style={{ backgroundColor: '#f4a26122' }}>
+              <Ionicons name="key-outline" size={20} color="#F4A261" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-white font-semibold text-sm">Encryption keys not loaded</Text>
+              <Text className="text-gray-400 text-xs mt-0.5 leading-4">
+                Your password was reset. Tap to recover with your 24-word seed phrase.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#F4A261" />
+          </View>
+        </Pressable>
+      )}
 
       {/* MENU SECTIONS */}
       {MENU_SECTIONS.map((section) => (

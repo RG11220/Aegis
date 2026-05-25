@@ -1,10 +1,13 @@
+// Must be the FIRST import: installs globalThis.crypto.getRandomValues for Hermes,
+// which the from-scratch crypto (seed/keygen/AES/RSA) depends on. Without it,
+// key generation throws and sign-up silently fails to provision keys.
+import "react-native-get-random-values";
 import { Stack } from "expo-router";
 import "../global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import AuthSync from "@/components/AuthSync";
-import SocketConnection from "@/components/SocketConnection";
 import { StatusBar } from "expo-status-bar";
 import { LogBox } from "react-native";
 import * as Sentry from '@sentry/react-native';
@@ -49,12 +52,12 @@ export default Sentry.wrap(function RootLayout() {
     <ClerkProvider tokenCache={tokenCache}>
       <QueryClientProvider client={queryClient}>
         <AuthSync />
-        <SocketConnection />
         <StatusBar style='light' />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#242428' } }}>
           <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen name="new-chat" options={{ animation: 'slide_from_bottom', presentation: 'modal', gestureEnabled: true }} />
+          <Stack.Screen name="recover"  options={{ animation: 'slide_from_bottom', presentation: 'modal', gestureEnabled: true }} />
         </Stack>
       </QueryClientProvider>
     </ClerkProvider>

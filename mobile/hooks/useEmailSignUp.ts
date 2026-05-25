@@ -2,12 +2,14 @@
  * Email sign-up hook.
  *
  * After email verification completes, we transparently:
- *   1. Generate a random RSA-2048 keypair (client-side, ~200-800 ms)
- *   2. Encrypt the private key with PBKDF2(password) + ChaCha20
- *   3. POST the encrypted blob + public key to our backend for storage
- *   4. Store both keys in the in-memory crypto session
+ *   1. Generate a random 24-word seed phrase
+ *   2. Derive a deterministic RSA-2048 keypair from the seed
+ *   3. Encrypt the private key with PBKDF2(password) + ChaCha20
+ *   4. POST the encrypted blob + public key + seed phrase to our backend
+ *      (backend stores the keys and emails the 24 words to the user)
+ *   5. Store both keys in the in-memory crypto session
  *
- * The user only sees "Verifying…" — no mention of keys or crypto.
+ * The user only sees "Verifying…" — the seed phrase email arrives in the background.
  *
  * Note: the plaintext password is held in a ref between handleSignUp and
  * handleVerify (two separate user interactions). It is never persisted.
@@ -17,7 +19,7 @@ import { InteractionManager } from "react-native";
 import { useSignUp } from "@clerk/clerk-expo";
 import { useRef, useState } from "react";
 import { useApi } from "@/lib/axios";
-import { generateRandomRSAKeyPair } from "@/lib/crypto/rsa/RsaGenerate";
+import { generateRSAKeyPairFromSeed, generateSeedPhrase } from "@/lib/crypto/rsa/RsaFromSeed";
 import { encryptPrivateKey } from "@/lib/crypto/password/Encryptprivatekey";
 import { useCryptoSession } from "@/lib/cryptoSession";
 
@@ -68,33 +70,50 @@ function useEmailSignUp() {
 
         // ── Crypto setup (transparent to the user) ──────────────────────────
         try {
+          // Sync the user into our SQL DB FIRST — register-keys uses protectRoute
+          // which does SELECT WHERE clerkId = ?. Without this call the user row
+          // doesn't exist yet and register-keys returns 404.
+          // authCallback uses ON DUPLICATE KEY UPDATE, so calling it twice is safe.
+          await apiWithAuth({ method: "POST", url: "/auth/callback" });
+
           const password = passwordRef.current;
 
-          const { publicKeyPem, privateKeyPem, encryptedPrivateKey, keySalt } = await new Promise<{
-            publicKeyPem: string;
-            privateKeyPem: string;
-            encryptedPrivateKey: string;
-            keySalt: string;
-          }>((resolve, reject) => {
-            InteractionManager.runAfterInteractions(async () => {
-              try {
-                const { publicKeyPem, privateKeyPem } = await generateRandomRSAKeyPair();
-                const { encryptedPrivateKey, keySalt } = encryptPrivateKey(privateKeyPem, password);
-                resolve({ publicKeyPem, privateKeyPem, encryptedPrivateKey, keySalt });
-              } catch (err) {
-                reject(err);
-              }
-            });
-          });
+          const { publicKeyPem, privateKeyPem, encryptedPrivateKey, keySalt, seedPhrase } =
+            await new Promise<{
+              publicKeyPem: string;
+              privateKeyPem: string;
+              encryptedPrivateKey: string;
+              keySalt: string;
+              seedPhrase: string[];
+            }>((resolve, reject) => {
+              InteractionManager.runAfterInteractions(async () => {
+                try {
+                  // 1. Random 24-word seed phrase (no repeats)
+                  const seedPhrase = generateSeedPhrase();
 
-          // 3. POST to backend — server stores the encrypted blob + public key.
+                  // 2. Deterministic RSA keypair from the seed
+                  //    Same 24 words → always the same keypair (needed for recovery)
+                  const { publicKeyPem, privateKeyPem } = await generateRSAKeyPairFromSeed(seedPhrase);
+
+                  // 3. Encrypt the private key with the user's password
+                  const { encryptedPrivateKey, keySalt } = encryptPrivateKey(privateKeyPem, password);
+
+                  resolve({ publicKeyPem, privateKeyPem, encryptedPrivateKey, keySalt, seedPhrase });
+                } catch (err) {
+                  reject(err);
+                }
+              });
+            });
+
+          // 4. POST to backend — stores encrypted blob + public key,
+          //    and emails the 24-word seed phrase to the user.
           await apiWithAuth({
             method: "POST",
             url: "/auth/register-keys",
-            data: { publicKey: publicKeyPem, encryptedPrivateKey, keySalt },
+            data: { publicKey: publicKeyPem, encryptedPrivateKey, keySalt, seedPhrase },
           });
 
-          // 4. Store in memory for the session.
+          // 5. Store in memory for the session.
           setKeys(privateKeyPem, publicKeyPem);
         } catch (cryptoErr) {
           // Keys failed to generate/store — user can still use the app but

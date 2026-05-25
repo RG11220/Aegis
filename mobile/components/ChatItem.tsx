@@ -9,6 +9,9 @@ const ChatItem = ({ chat, onPress }: { chat: Chat; onPress: () => void }) => {
 
   const { onlineUsers, typingUsers, unreadChats } = useSocketStore();
 
+  // Guard: participant may be null if the other user was deleted or not yet populated
+  if (!participant) return null;
+
   const isOnline = onlineUsers.has(participant._id);
   const isTyping = typingUsers.get(chat._id) === participant._id;
   const hasUnread = unreadChats.has(chat._id);
@@ -50,7 +53,9 @@ const ChatItem = ({ chat, onPress }: { chat: Chat; onPress: () => void }) => {
               className={`text-sm flex-1 mr-3 ${hasUnread ? "text-foreground font-medium" : "text-subtle-foreground"}`}
               numberOfLines={1}
             >
-              {chat.lastMessage?.text || "No messages yet"}
+              {chat.lastMessage
+                ? (chat.lastMessage.text ?? "🔒 New message")
+                : "No messages yet"}
             </Text>
           )}
         </View>
