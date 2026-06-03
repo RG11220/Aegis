@@ -21,12 +21,8 @@
 import { useSignIn } from "@clerk/clerk-expo";
 import { useState } from "react";
 import { useApi } from "@/lib/axios";
-import {
-  decryptPrivateKeyAsync,
-  encryptPrivateKey,
-} from "@/lib/crypto/password/Encryptprivatekey";
+import { decryptPrivateKeyAsync } from "@/lib/crypto/password/Encryptprivatekey";
 import { useCryptoSession } from "@/lib/cryptoSession";
-import { generateRSAKeyPairFromSeed, generateSeedPhrase } from "@/lib/crypto/rsa/RsaFromSeed";
 
 interface CryptoKeysResponse {
   publicKey: string;
@@ -51,6 +47,10 @@ function useEmailSignIn() {
     try {
       const result = await signIn.create({ identifier: email, password });
 
+      if (result.status !== "complete") {
+        return `Sign-in couldn't complete (status: ${result.status}). Try again or use Google sign-in.`;
+      }
+
       if (result.status === "complete" && setActive) {
         await setActive({ session: result.createdSessionId });
 
@@ -67,31 +67,25 @@ function useEmailSignIn() {
             const status = fetchErr?.response?.status;
 
             if (status === 404) {
-              // This account has no keys yet (created before seed-phrase phase).
-              // Generate deterministic keys + seed phrase and register them now.
-              console.log("[Crypto] No keys found — generating new keypair for existing account");
+              // No keys yet — provision them server-side (avoids freezing the JS
+              // thread with on-device RSA-2048 keygen which takes several seconds).
+              console.log("[Crypto] No keys found — provisioning via server");
 
-              const seedPhrase = generateSeedPhrase();
-              const { publicKeyPem, privateKeyPem } = await generateRSAKeyPairFromSeed(seedPhrase);
-              const { encryptedPrivateKey, keySalt } = encryptPrivateKey(privateKeyPem, password);
-
-              await apiWithAuth({
+              const { data } = await apiWithAuth<{ publicKey: string; privateKey: string }>({
                 method: "POST",
-                url: "/auth/register-keys",
-                data: { publicKey: publicKeyPem, encryptedPrivateKey, keySalt, seedPhrase },
+                url: "/auth/provision-keys",
+                data: { password },
               });
 
-              setKeys(privateKeyPem, publicKeyPem);
-              return; // keys are ready, skip the decrypt step below
+              setKeys(data.privateKey, data.publicKey);
+              return;
             }
 
-            // Any other error (network, 5xx) — log and continue without keys
             throw fetchErr;
           }
 
           if (keysResponse) {
             try {
-              // Decrypt the private key — uses native WebCrypto PBKDF2 (non-blocking)
               const privateKeyPem = await decryptPrivateKeyAsync(
                 keysResponse.encryptedPrivateKey,
                 keysResponse.keySalt,
@@ -99,20 +93,16 @@ function useEmailSignIn() {
               );
               setKeys(privateKeyPem, keysResponse.publicKey);
             } catch (decryptErr: any) {
-              // MAC verification failed — the stored key blob was encrypted with a
-              // different password (typically after a Clerk password reset).
-              // Flag this so the settings screen can prompt the user to recover.
               console.warn("[Crypto] Key decryption failed — flagging for seed-phrase recovery:", decryptErr.message);
               setKeyLoadFailed(true);
             }
           }
         } catch (cryptoErr) {
-          // Do not block sign-in — app works, but encrypted messages won't display.
           console.error("[Crypto] Failed to load keys after sign-in:", cryptoErr);
         }
       }
     } catch (error: any) {
-      const message = error.errors?.[0]?.longMessage ?? "Sign in failed";
+      const message = error.errors?.[0]?.longMessage || error.errors?.[0]?.message || "Sign in failed";
       console.error(message);
       return message;
     } finally {

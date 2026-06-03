@@ -218,7 +218,19 @@ export async function authCallback(req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    // Fetch user info from Clerk first
+    // Fast path: if the user already exists, return it WITHOUT calling Clerk's
+    // backend API. clerkClient.users.getUser is rate-limited on dev instances, and
+    // calling it on every sync caused "Too Many Requests" (429) → 500 errors.
+    const [existingRows] = await execute(
+      "SELECT userID, userName, userEmail, profilePicture, publicKey FROM Users WHERE clerkId = ? LIMIT 1",
+      [clerkId]
+    ) as [ClerkUserRow[], unknown];
+    if (existingRows[0]) {
+      res.status(200).json(mapUser(existingRows[0]));
+      return;
+    }
+
+    // New user only — fetch the profile from Clerk once, then insert.
     const clerkUser = await clerkClient.users.getUser(clerkId);
 
     const name = (clerkUser.firstName

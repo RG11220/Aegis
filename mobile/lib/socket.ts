@@ -121,12 +121,15 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       const senderId = message.senderId;
       const { currentChatId } = get();
 
-      // Add the real encrypted message, removing any matching optimistic entry
+      // Add the real encrypted message, removing any matching optimistic entry.
+      // Filter by BOTH tempId AND real messageId: if message-ack fired first it
+      // already swapped the optimistic entry's _id to the real id, so filtering
+      // only by tempId would miss it and produce a duplicate key.
       queryClient.setQueryData<Message[]>(["messages", message.chat], (old) => {
         if (!old) return [message];
-        const filtered = message.originalTempId
-          ? old.filter((m) => m._id !== message.originalTempId)
-          : old;
+        const filtered = old.filter(
+          (m) => m._id !== message.originalTempId && m._id !== message._id
+        );
         return [...filtered, message];
       });
 

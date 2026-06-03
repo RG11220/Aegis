@@ -25,8 +25,6 @@ import { encryptPrivateKey } from "@/lib/crypto/password/Encryptprivatekey";
 import { useCryptoSession } from "@/lib/cryptoSession";
 
 function useEmailSignUp() {
-  // NOTE: The current mobile sign-up screen opts for server-side key provisioning
-  // via /auth/provision-keys to avoid on-device RSA generation stalls.
   const { signUp, setActive, isLoaded } = useSignUp();
   const { apiWithAuth } = useApi();
   const setKeys = useCryptoSession((s) => s.setKeys);
@@ -34,8 +32,6 @@ function useEmailSignUp() {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Hold the plaintext password between the two-step sign-up flow.
-  // Never stored to disk — lives only in this hook's closure.
   const passwordRef = useRef<string>("");
 
   const handleSignUp = async (
@@ -49,7 +45,6 @@ function useEmailSignUp() {
       await signUp.create({ emailAddress: email, password });
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
 
-      // Stash the password so handleVerify can use it.
       passwordRef.current = password;
       setPendingVerification(true);
     } catch (error: any) {
@@ -79,12 +74,7 @@ function useEmailSignUp() {
       if (result.status === "complete" && setActive) {
         await setActive({ session: result.createdSessionId });
 
-        // ── Crypto setup (transparent to the user) ──────────────────────────
         try {
-          // Sync the user into our SQL DB FIRST — register-keys uses protectRoute
-          // which does SELECT WHERE clerkId = ?. Without this call the user row
-          // doesn't exist yet and register-keys returns 404.
-          // authCallback uses ON DUPLICATE KEY UPDATE, so calling it twice is safe.
           await apiWithAuth({ method: "POST", url: "/auth/callback" });
 
           const password = passwordRef.current;
@@ -99,16 +89,9 @@ function useEmailSignUp() {
             }>((resolve, reject) => {
               InteractionManager.runAfterInteractions(async () => {
                 try {
-                  // 1. Random 24-word seed phrase (no repeats)
                   const seedPhrase = generateSeedPhrase();
-
-                  // 2. Deterministic RSA keypair from the seed
-                  //    Same 24 words → always the same keypair (needed for recovery)
                   const { publicKeyPem, privateKeyPem } = await generateRSAKeyPairFromSeed(seedPhrase);
-
-                  // 3. Encrypt the private key with the user's password
                   const { encryptedPrivateKey, keySalt } = encryptPrivateKey(privateKeyPem, password);
-
                   resolve({ publicKeyPem, privateKeyPem, encryptedPrivateKey, keySalt, seedPhrase });
                 } catch (err) {
                   reject(err);
@@ -116,22 +99,16 @@ function useEmailSignUp() {
               });
             });
 
-          // 4. POST to backend — stores encrypted blob + public key,
-          //    and emails the 24-word seed phrase to the user.
           await apiWithAuth({
             method: "POST",
             url: "/auth/register-keys",
             data: { publicKey: publicKeyPem, encryptedPrivateKey, keySalt, seedPhrase },
           });
 
-          // 5. Store in memory for the session.
           setKeys(privateKeyPem, publicKeyPem);
         } catch (cryptoErr) {
-          // Keys failed to generate/store — user can still use the app but
-          // E2E encryption won't work until they sign out and back in.
           console.error("[Crypto] Failed to set up keys after sign-up:", cryptoErr);
         } finally {
-          // Clear the password from memory as soon as possible.
           passwordRef.current = "";
         }
       }

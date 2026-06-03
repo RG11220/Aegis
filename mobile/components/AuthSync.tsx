@@ -32,24 +32,29 @@ const AuthSync = () => {
     if (!isLoaded) return;
 
     if (isSignedIn && user && !hasSynced.current) {
+      hasSynced.current = true;
       syncUser(undefined, {
         onSuccess: (data) => {
-          hasSynced.current = true;
           console.log(" User synced with backend:", data.name);
           Sentry.logger.info(Sentry.logger.fmt`User synced: ${data.name}`, {
             userId: user.id,
             userName: data.name,
           });
 
-          // ✅ User is now confirmed in the SQL DB — safe to open the socket.
+          // Invalidate queries that fired before the user row existed in SQL.
+          // protectRoute returns 404 if it can't find the clerkId yet, so any
+          // query that landed before this callback completed needs a refetch.
+          queryClient.invalidateQueries({ queryKey: ["chats"] });
+          queryClient.invalidateQueries({ queryKey: ["users"] });
+
           connect(getToken, queryClient);
         },
-        onError: (error) => {
-          hasSynced.current = false;
-          console.log("❌ User sync failed:", error);
+        onError: (error: any) => {
+          const serverMessage = error?.response?.data?.message ?? error?.message ?? String(error);
+          console.log("❌ User sync failed:", error?.response?.status, serverMessage);
           Sentry.logger.error("Failed to sync user with backend", {
             userId: user.id,
-            error: error instanceof Error ? error.message : String(error),
+            error: serverMessage,
           });
         },
       });

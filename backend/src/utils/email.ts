@@ -22,16 +22,18 @@ const FROM_EMAIL = process.env.FROM_EMAIL ?? "onboarding@resend.dev";
  *  - How to use them to recover their account
  */
 const escapeHtml = (value: string) =>
-  value.replace(/[&<>"'`]/g, (char) =>
-    ({
+  value.replace(/[&<>'"`]/g, (char) => {
+    const escapeMap: Record<string, string> = {
       '&': '&amp;',
       '<': '&lt;',
       '>': '&gt;',
       '"': '&quot;',
       "'": '&#39;',
       '`': '&#96;',
-    } as Record<string, string>)[char]
-  );
+    };
+
+    return escapeMap[char] ?? char;
+  });
 
 export async function sendSeedPhraseEmail(
   toEmail: string,
@@ -133,7 +135,6 @@ export async function sendSeedPhraseEmail(
 
   if (error) {
     // Non-fatal: log and move on. Keys are already stored — user can re-request later.
-    console.error("[Email] Failed to send seed phrase email:", error);
-    throw new Error(`Email delivery failed: ${error.message}`);
+    console.warn("[Email] Failed to send seed phrase email (non-fatal):", error.message);
   }
 }

@@ -1,34 +1,23 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
 import React, { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useSignIn } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
+import useEmailSignIn from '@/hooks/useEmailSignIn'
 
 const SignInScreen = () => {
-  const { signIn, setActive, isLoaded } = useSignIn()
   const router = useRouter()
+  const { handleEmailSignIn, loading } = useEmailSignIn()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleSignIn = async () => {
-    if (!isLoaded) return
-    try {
-      setLoading(true)
-      setError('')
-      const result = await signIn.create({ identifier: email, password })
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId })
-      }
-    } catch (err: any) {
-      setError(err.errors?.[0]?.message ?? 'Something went wrong.')
-    } finally {
-      setLoading(false)
-    }
+    setError('')
+    const err = await handleEmailSignIn(email, password)
+    if (err) setError(err)
   }
 
   return (

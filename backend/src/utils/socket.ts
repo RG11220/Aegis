@@ -23,13 +23,22 @@ export const initializeSocket = (httpServer: HttpServer) => {
   }
   const clerkSecretKey = process.env.CLERK_SECRET_KEY;
 
-  const allowedOrigins = [
-    "http://localhost:8081",
-    "http://localhost:5173",
-    process.env.FRONTEND_URL,
-  ].filter(Boolean) as string[];
+  const DEV_ORIGINS = [
+    /^http:\/\/localhost(:\d+)?$/,
+    /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
+    /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
+  ];
 
-  const io = new SocketServer(httpServer, { cors: { origin: allowedOrigins } });
+  const originFn = (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
+    // Native mobile clients send no Origin header — always allow
+    if (!origin) return cb(null, true);
+    const allowed = process.env.NODE_ENV === "production"
+      ? origin === process.env.FRONTEND_URL
+      : DEV_ORIGINS.some((r) => r.test(origin));
+    cb(allowed ? null : new Error(`CORS: ${origin} not allowed`), allowed);
+  };
+
+  const io = new SocketServer(httpServer, { cors: { origin: originFn, credentials: true } });
 
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
