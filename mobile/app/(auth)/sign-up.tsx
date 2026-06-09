@@ -13,10 +13,7 @@ const SignUpScreen = () => {
   const { apiWithAuth } = useApi()
   const setKeys = useCryptoSession((s) => s.setKeys)
 
-  // This screen uses server-side provisioning of RSA keys via /auth/provision-keys.
-  // The mobile hook useEmailSignUp contains an alternate client-side generator but
-  // is not currently active because on-device RSA-2048 generation can freeze the
-  // JS thread on lower-end devices.
+  // uses server-side key provisioning (on-device RSA too slow)
 
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -60,13 +57,8 @@ const SignUpScreen = () => {
       if (result.status === 'complete' && setActive) {
         await setActive({ session: result.createdSessionId })
 
-        // Provision E2E keys on the SERVER (RSA-2048 keygen is too slow on-device).
-        // The backend generates + stores the keypair and emails the recovery words,
-        // then returns the keys so we can hold them in memory for this session.
-        // Failures are surfaced (Alert + inline error) rather than swallowed.
         try {
-          // Ensure the SQL user row exists first — provision-keys is protected and
-          // looks the user up by clerkId. authCallback upserts, so it's safe to call.
+          // ensure user row exists before provisioning
           await apiWithAuth({ method: 'POST', url: '/auth/callback' })
 
           const { data } = await apiWithAuth<{ publicKey: string; privateKey: string }>({
@@ -75,7 +67,6 @@ const SignUpScreen = () => {
             data: { password },
           })
 
-          // Hold the keys in memory for this session.
           setKeys(data.privateKey, data.publicKey)
         } catch (cryptoErr: any) {
           const msg =
@@ -196,7 +187,7 @@ const SignUpScreen = () => {
             </View>
 
             <View className='gap-4'>
-              {/* Username */}
+              {/* username */}
               <View>
                 <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Username</Text>
                 <View className='bg-surface-card rounded-2xl flex-row items-center px-4 border border-surface-light'>
@@ -213,7 +204,7 @@ const SignUpScreen = () => {
                 </View>
               </View>
 
-              {/* Email */}
+              {/* email */}
               <View>
                 <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Email</Text>
                 <View className='bg-surface-card rounded-2xl flex-row items-center px-4 border border-surface-light'>
@@ -230,7 +221,7 @@ const SignUpScreen = () => {
                 </View>
               </View>
 
-              {/* Password */}
+              {/* password */}
               <View>
                 <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Password</Text>
                 <View className='bg-surface-card rounded-2xl flex-row items-center px-4 border border-surface-light'>
@@ -249,7 +240,7 @@ const SignUpScreen = () => {
                 </View>
               </View>
 
-              {/* Confirm Password */}
+              {/* confirm password */}
               <View>
                 <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Confirm Password</Text>
                 <View

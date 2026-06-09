@@ -16,7 +16,7 @@ const AuthScreen = () => {
 
   return (
     <View className="flex-1 bg-surface-dark">
-      {/* Animated background */}
+      {/* bg */}
       <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, overflow: "hidden" }}>
         <LinearGradient
           colors={["#0a1a16", "#0d2b22", "#0a1a16", "#060f0c"]}
@@ -32,7 +32,7 @@ const AuthScreen = () => {
       </View>
 
       <SafeAreaView className="flex-1">
-        {/* Branding */}
+        {/* brand */}
         <View className="items-center pt-10">
           <Image
             source={require("../../assets/images/logo.png")}
@@ -44,7 +44,7 @@ const AuthScreen = () => {
           </Text>
         </View>
 
-        {/* Hero */}
+        {/* hero */}
         <View className="flex-1 justify-center items-center px-6">
           <Image
             source={require("../../assets/images/auth.png")}
@@ -57,9 +57,8 @@ const AuthScreen = () => {
             <Text className="text-3xl font-bold mt-1" style={{ color: "#00876F" }}>Seamlessly</Text>
           </View>
 
-          {/* Buttons */}
           <View className="w-full gap-3 mt-10">
-            {/* Google */}
+            {/* google */}
             <Pressable
               className="w-full flex-row items-center justify-center gap-3 bg-white py-4 rounded-2xl"
               disabled={isLoading}
@@ -82,7 +81,7 @@ const AuthScreen = () => {
               )}
             </Pressable>
 
-            {/* Email / Password */}
+            {/* email */}
             <Pressable
               className="w-full flex-row items-center justify-center gap-3 py-4 rounded-2xl border"
               style={({ pressed }) => ({

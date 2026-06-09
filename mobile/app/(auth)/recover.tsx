@@ -1,13 +1,4 @@
-/**
- * Account Recovery Screen
- *
- * Shown when a user has reset their Clerk password but their encrypted private
- * key still uses the old password. The user enters their 24-word seed phrase
- * and their new (current) password to re-encrypt the key.
- *
- * This screen is only reachable after the user has already signed in to Clerk
- * with the new password (useEmailSignIn detects decryption failure and redirects here).
- */
+// recovery screen — re-encrypt key with new password via seed phrase
 
 import React, { useRef, useState } from 'react'
 import {
@@ -40,7 +31,7 @@ const RecoverScreen = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
 
-  // Refs so we can advance focus word-by-word
+  // focus next input on submit
   const inputRefs = useRef<(TextInput | null)[]>(Array(WORD_COUNT).fill(null))
 
   const updateWord = (index: number, value: string) => {
@@ -56,7 +47,7 @@ const RecoverScreen = () => {
   const onSubmit = async () => {
     setError('')
 
-    // Client-side validation
+    // validate words client-side first
     const invalid = words.filter(w => !WORD_SET.has(w))
     if (invalid.length > 0) {
       setError(`Unknown word(s): ${invalid.slice(0, 3).join(', ')}${invalid.length > 3 ? '…' : ''}`)
@@ -69,7 +60,7 @@ const RecoverScreen = () => {
       return
     }
 
-    // Keys restored — go home
+    // keys restored, go home
     Alert.alert('Account Recovered', 'Your keys have been restored. You can now send and read messages.', [
       { text: 'OK', onPress: () => router.replace('/(tabs)') },
     ])
@@ -81,7 +72,6 @@ const RecoverScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className='flex-1'
       >
-        {/* Back button */}
         <View className='px-6 pt-4'>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -96,7 +86,7 @@ const RecoverScreen = () => {
           keyboardShouldPersistTaps='handled'
           showsVerticalScrollIndicator={false}
         >
-          {/* Heading */}
+          {/* heading */}
           <View className='mt-6 mb-8'>
             <View className='w-10 h-1 bg-primary-light rounded-full mb-4' />
             <Text className='text-white text-3xl font-bold'>Recover{'\n'}Account</Text>
@@ -105,7 +95,7 @@ const RecoverScreen = () => {
             </Text>
           </View>
 
-          {/* Word grid — 3 columns × 8 rows */}
+          {/* word grid */}
           <View className='mb-6'>
             <Text className='text-gray-400 text-xs font-medium mb-3 uppercase tracking-widest'>
               Recovery Words
@@ -145,7 +135,7 @@ const RecoverScreen = () => {
             ))}
           </View>
 
-          {/* Password field */}
+          {/* password */}
           <View className='mb-8'>
             <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>
               Current Password
@@ -165,7 +155,7 @@ const RecoverScreen = () => {
             </View>
           </View>
 
-          {/* Error */}
+          {/* error */}
           {error ? (
             <View className='flex-row items-center gap-2 mb-4'>
               <Feather name='alert-circle' size={14} color='#f87171' />
@@ -173,7 +163,7 @@ const RecoverScreen = () => {
             </View>
           ) : null}
 
-          {/* Submit */}
+          {/* submit */}
           <TouchableOpacity
             onPress={onSubmit}
             disabled={loading || !allFilled || !allValid || !password}

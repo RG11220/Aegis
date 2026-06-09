@@ -1,4 +1,4 @@
-// RSA big-integer math helpers
+// bigint math for RSA
 
 export function bytesToBigInt(bytes: Uint8Array): bigint {
   let result = 0n;

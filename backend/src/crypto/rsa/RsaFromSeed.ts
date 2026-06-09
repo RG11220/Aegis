@@ -1,12 +1,4 @@
-// Deterministic RSA-2048 key generation from a mnemonic seed phrase
-// Same 24 words → always identical keys. Different words → unique keys.
-//
-// Chain:
-//   24 words → numeric seed string (SeedDictionary)
-//       → PBKDF2 key + nonce (SeedToKeyMaterial)
-//       → ChaCha20 keystream PRNG (SeededRng)
-//       → Miller-Rabin prime generation (MillerRabin)
-//       → RSA key math → PKCS#8 / SPKI PEM (RsaDer)
+// words→seed→pbkdf2→chacha20 PRNG→primes→PEM
 
 import { seedStringFromWords } from "../seed/SeedDictionary";
 import { keyMaterialFromSeed } from "../seed/SeedToKeyMaterial";
@@ -35,14 +27,14 @@ export async function generateRSAKeyPairFromSeed(words: string[]): Promise<{
     if (p === q) continue;
 
     const n = p * q;
-    if (n >> 2047n === 0n) continue; // must be a full 2048-bit modulus
+    if (n >> 2047n === 0n) continue; // enforce full 2048-bit
 
-    // λ(n) = lcm(p−1, q−1)
+    // λ(n) = lcm(p-1, q-1)
     const p1     = p - 1n;
     const q1     = q - 1n;
     const lambda = (p1 / gcd(p1, q1)) * q1;
 
-    if (lambda % E === 0n) continue; // e must be coprime with λ(n)
+    if (lambda % E === 0n) continue; // e coprime with λ(n)
 
     d = modInverse(E, lambda);
     break;

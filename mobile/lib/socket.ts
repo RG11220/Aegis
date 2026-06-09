@@ -14,7 +14,7 @@ export interface SocketState {
   isConnected: boolean;
   isConnecting: boolean;
   onlineUsers: Set<string>;
-  typingUsers: Map<string, string>; // chatId -> userId
+  typingUsers: Map<string, string>; // chatId → userId
   unreadChats: Set<string>;
   currentChatId: string | null;
   queryClient: QueryClient | null;
@@ -49,9 +49,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     if (existingSocket) existingSocket.disconnect();
     set({ isConnecting: true });
 
-    // Function-form auth: called on every connect/reconnect attempt so the
-    // token is always fresh — Clerk JWTs are short-lived and would otherwise
-    // expire between reconnection retries.
+    // fresh token on every reconnect attempt
     const socket = io(SOCKET_URL, {
       auth: async (cb: (data: { token: string | null }) => void) => {
         const token = await getToken();
@@ -107,7 +105,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       });
     });
 
-    // message-ack: server confirmed send; swap the optimistic entry by tempId
+    // ack: swap optimistic entry with real id
     socket.on(
       "message-ack",
       ({ tempId, messageId, chatId }: { tempId: string; messageId: string; chatId: string }) => {
@@ -121,10 +119,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       const senderId = message.senderId;
       const { currentChatId } = get();
 
-      // Add the real encrypted message, removing any matching optimistic entry.
-      // Filter by BOTH tempId AND real messageId: if message-ack fired first it
-      // already swapped the optimistic entry's _id to the real id, so filtering
-      // only by tempId would miss it and produce a duplicate key.
+      // replace optimistic entry, filter both tempId and real id
       queryClient.setQueryData<Message[]>(["messages", message.chat], (old) => {
         if (!old) return [message];
         const filtered = old.filter(
@@ -133,7 +128,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
         return [...filtered, message];
       });
 
-      // Update chat's lastMessage — no plaintext available; show placeholder
+      // update lastMessage; no plaintext, shows placeholder
       queryClient.setQueryData<Chat[]>(["chats"], (oldChats) => {
         return oldChats?.map((chat) => {
           if (chat._id === message.chat) {
@@ -141,7 +136,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
               ...chat,
               lastMessage: {
                 _id: message._id,
-                // text is undefined for encrypted messages — UI shows "New message"
+                // text undefined for encrypted msgs
                 sender: senderId,
                 createdAt: message.createdAt,
               },
@@ -152,7 +147,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
         });
       });
 
-      // mark as unread if not currently viewing this chat and message is from other user
+      // mark unread if not in this chat
       if (currentChatId !== message.chat) {
         const chats = queryClient.getQueryData<Chat[]>(["chats"]);
         const chat = chats?.find((c) => c._id === message.chat);
@@ -163,7 +158,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
         }
       }
 
-      // clear typing indicator when message received
+      // clear typing on receive
       set((state) => {
         const typingUsers = new Map(state.typingUsers);
         typingUsers.delete(message.chat);
@@ -229,14 +224,12 @@ export const useSocketStore = create<SocketState>((set, get) => ({
 
     const tempId = `temp-${Date.now()}`;
 
-    // Optimistic message: shows the plaintext immediately in the UI while the
-    // encrypted payload is in flight. It gets replaced by the real message once
-    // the server ACKs and broadcasts back.
+    // optimistic — replaced when server acks
     const optimisticMessage: Message = {
       _id: tempId,
       chat: chatId,
       senderId: currentUser._id,
-      text: plaintext, // plaintext for local display only
+      text: plaintext, // local display only
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

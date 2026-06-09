@@ -1,7 +1,4 @@
-// Seed phrase dictionary — ported from AegisSeedDictionary.java
-// Words map to codes starting at 10 (apple=10, banana=11, ...)
-// Phrases are 24 unique words, no repeats
-// Mobile port: removed "import { webcrypto } from 'crypto'" — uses globalThis.crypto directly.
+// seed dictionary: codes start at 10, 24 unique words per phrase
 
 export const WORDS: string[] = [
   "apple", "banana", "cherry", "date", "elderberry", "fig", "grape",
@@ -23,10 +20,7 @@ export const WORDS: string[] = [
 export const WORD_TO_CODE = new Map<string, number>(WORDS.map((w, i) => [w, 10 + i]));
 export const WORD_SET      = new Set(WORDS);
 
-/**
- * Generate a random 24-word seed phrase with no repeated words.
- * Uses globalThis.crypto.getRandomValues (available in both Node 18+ and Hermes).
- */
+// random 24 words, no repeats
 export function generateSeedPhrase(): string[] {
   const phrase: string[] = [];
   const used = new Set<string>();
@@ -44,11 +38,7 @@ export function generateSeedPhrase(): string[] {
   return phrase;
 }
 
-/**
- * Convert a 24-word phrase into the raw numeric seed string.
- * e.g. ["apple", "banana"] → "1011"
- * Validates: exactly 24 words, all known, no duplicates.
- */
+// words → numeric seed string, validates uniqueness
 export function seedStringFromWords(words: string[]): string {
   if (words.length !== 24) throw new Error("Seed phrase must be exactly 24 words");
 

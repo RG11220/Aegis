@@ -1,6 +1,4 @@
-// DER / PEM encoding for RSA keys
-// Produces output byte-identical to crypto.subtle exportKey("spki") and exportKey("pkcs8")
-// Mobile port: replaces Buffer.from().toString("base64") with pure-JS bytesToBase64.
+// DER/PEM encoding, matches crypto.subtle output
 
 import { bytesToBase64 } from "../utils/Bytes";
 
@@ -29,7 +27,7 @@ function derSequence(contents: Uint8Array): Uint8Array {
   return new Uint8Array([0x30, ...encodeLength(contents.length), ...contents]);
 }
 
-// OID 1.2.840.113549.1.1.1 (rsaEncryption) wrapped in AlgorithmIdentifier
+// rsaEncryption OID in AlgorithmIdentifier
 const RSA_OID = new Uint8Array([
   0x30, 0x0d,
   0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01,
@@ -61,7 +59,6 @@ export function encodePkcs8(
   return derSequence(concat(derInteger(0n), RSA_OID, octetString));
 }
 
-/** No Buffer — uses pure-JS bytesToBase64. */
 export function bufferToPem(buffer: Uint8Array, label: string): string {
   const base64 = bytesToBase64(buffer);
   const lines  = base64.match(/.{1,64}/g)?.join("\n") ?? base64;

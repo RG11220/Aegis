@@ -11,8 +11,7 @@ const SocketConnection = () => {
 
   useEffect(() => {
     if (isSignedIn) {
-      // Pass getToken as a function — socket.io calls it on every connect/reconnect
-      // so the Clerk JWT is always fresh (short-lived tokens never expire mid-session).
+      // pass fn so token stays fresh on reconnect
       connect(getToken, queryClient);
     } else {
       disconnect();

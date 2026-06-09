@@ -1,26 +1,10 @@
-/**
- * Email utility — powered by Resend.
- * Set RESEND_API_KEY in .env and set a verified FROM_EMAIL (or use Resend's sandbox domain).
- */
-
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// The address emails are sent from.
-// During development you can use Resend's sandbox: onboarding@resend.dev
-// In production replace with your verified domain, e.g. security@aegis.app
+// resend sandbox in dev
 const FROM_EMAIL = process.env.FROM_EMAIL ?? "onboarding@resend.dev";
 
-/**
- * Send the 24-word seed phrase to the user's email address.
- * Called once, immediately after account creation.
- *
- * The email explains:
- *  - What the words are
- *  - Why they must keep them safe
- *  - How to use them to recover their account
- */
 const escapeHtml = (value: string) =>
   value.replace(/[&<>'"`]/g, (char) => {
     const escapeMap: Record<string, string> = {
@@ -40,7 +24,6 @@ export async function sendSeedPhraseEmail(
   userName: string,
   seedPhrase: string[]
 ): Promise<void> {
-  // Lay out the words in a 4-column grid (6 rows × 4 cols = 24)
   const wordRows: string[][] = [];
   for (let i = 0; i < 24; i += 4) {
     wordRows.push(seedPhrase.slice(i, i + 4));
@@ -69,14 +52,14 @@ export async function sendSeedPhraseEmail(
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#242428;border-radius:12px;overflow:hidden;">
 
-        <!-- Header -->
+        <!-- header -->
         <tr>
           <td style="padding:32px 40px 24px;border-bottom:1px solid #333;">
             <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">🔐 Your Aegis Recovery Phrase</h1>
           </td>
         </tr>
 
-        <!-- Body -->
+        <!-- body -->
         <tr>
           <td style="padding:32px 40px;">
             <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#c0c0c0;">
@@ -87,7 +70,7 @@ export async function sendSeedPhraseEmail(
               These words are the only way to recover access to your encrypted messages if you ever forget your password.
             </p>
 
-            <!-- Warning box -->
+            <!-- warning -->
             <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;background:#3a2a1a;border:1px solid #6b4020;border-radius:8px;">
               <tr>
                 <td style="padding:16px 20px;">
@@ -99,7 +82,7 @@ export async function sendSeedPhraseEmail(
               </tr>
             </table>
 
-            <!-- Word grid -->
+            <!-- word grid -->
             <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 24px;">
               ${wordTableRows}
             </table>
@@ -111,7 +94,7 @@ export async function sendSeedPhraseEmail(
           </td>
         </tr>
 
-        <!-- Footer -->
+        <!-- footer -->
         <tr>
           <td style="padding:20px 40px;border-top:1px solid #333;background:#1e1e22;">
             <p style="margin:0;font-size:12px;color:#555;text-align:center;">
@@ -134,7 +117,7 @@ export async function sendSeedPhraseEmail(
   });
 
   if (error) {
-    // Non-fatal: log and move on. Keys are already stored — user can re-request later.
+    // non-fatal, keys already stored
     console.warn("[Email] Failed to send seed phrase email (non-fatal):", error.message);
   }
 }

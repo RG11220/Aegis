@@ -46,7 +46,7 @@ const NewChatScreen = () => {
       <View className="flex-1 bg-black/40 justify-end">
         <View className="bg-surface rounded-t-3xl h-[95%] overflow-hidden">
 
-          {/* Header */}
+          {/* header */}
           <View className="px-5 pt-3 pb-3 bg-surface border-b border-surface-light flex-row items-center">
             <Pressable
               className="w-9 h-9 rounded-full items-center justify-center mr-2 bg-surface-card"
@@ -62,7 +62,7 @@ const NewChatScreen = () => {
             </View>
           </View>
 
-          {/* Search bar */}
+          {/* search */}
           <View className="px-5 pt-3 pb-2 bg-surface">
             <View className="flex-row items-center bg-surface-card rounded-full px-3 py-1.5 gap-2 border border-surface-light">
               <Ionicons name="search" size={18} color="#6B6B70" />
@@ -77,7 +77,7 @@ const NewChatScreen = () => {
             </View>
           </View>
 
-          {/* Users list */}
+          {/* users */}
           <View className="flex-1 bg-surface">
             {isCreatingChat || isLoading ? (
               <View className="flex-1 items-center justify-center">

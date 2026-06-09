@@ -1,6 +1,3 @@
-// Encrypts the RSA private key PEM using PBKDF2 (our impl) + ChaCha20 (our impl)
-// with HMAC-SHA256 integrity protection (encrypt-then-MAC).
-
 import { pbkdf2 }     from "../primitives/Pbkdf2";
 import { chacha20 }   from "../primitives/Chacha20";
 import { hmacSha256 } from "../primitives/Hmac";
@@ -12,7 +9,7 @@ function getRandomBytes(length: number): Uint8Array {
   return (webcrypto as unknown as Crypto).getRandomValues(new Uint8Array(length));
 }
 
-/** Constant-time comparison to prevent timing attacks on MAC verification. */
+// constant-time compare
 function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -20,19 +17,7 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-/**
- * Encrypt the RSA private key PEM with the user's password.
- *
- * Derives 64 bytes from PBKDF2 (encrypt-then-MAC):
- *  - bytes  0–31 → ChaCha20 encryption key
- *  - bytes 32–63 → HMAC-SHA256 MAC key
- *
- * MAC covers nonce || ciphertext so the tag binds both.
- *
- * Returns:
- *  - encryptedPrivateKey: "nonceHex:ciphertextHex:macHex"
- *  - keySalt: hex string
- */
+// pbkdf2 64 bytes: [0-31]=enc key, [32-63]=mac key; format: nonce:ct:mac
 export function encryptPrivateKey(
   privateKeyPem: string,
   password: string
@@ -40,14 +25,13 @@ export function encryptPrivateKey(
   const salt  = getRandomBytes(16);
   const nonce = getRandomBytes(12);
 
-  // Derive 64 bytes: first half for encryption, second half for authentication
   const material = pbkdf2(password, salt, ITERATIONS, 64);
   const encKey   = material.slice(0, 32);
   const macKey   = material.slice(32, 64);
 
   const ciphertext = chacha20(encKey, nonce, new TextEncoder().encode(privateKeyPem));
 
-  // Encrypt-then-MAC: MAC covers nonce || ciphertext
+  // mac covers nonce || ciphertext
   const macInput = new Uint8Array(nonce.length + ciphertext.length);
   macInput.set(nonce);
   macInput.set(ciphertext, nonce.length);
@@ -59,13 +43,6 @@ export function encryptPrivateKey(
   };
 }
 
-/**
- * Decrypt the RSA private key PEM with the user's password.
- *
- * Verifies the HMAC-SHA256 tag before decrypting (authenticate-then-decrypt).
- * Throws if the MAC is invalid — indicates wrong password or corrupted data.
- * Throws if the decrypted result is not a valid PEM key.
- */
 export function decryptPrivateKey(
   encryptedPrivateKey: string,
   keySalt: string,
@@ -80,12 +57,11 @@ export function decryptPrivateKey(
   const ciphertext = Buffer.from(ciphertextHex, "hex");
   const storedMac  = Buffer.from(macHex, "hex");
 
-  // Derive 64 bytes (same split as encryption)
   const material = pbkdf2(password, salt, ITERATIONS, 64);
   const encKey   = material.slice(0, 32);
   const macKey   = material.slice(32, 64);
 
-  // Verify MAC before decrypting — prevents wrong-password silent garbage
+  // mac before decrypt
   const macInput = new Uint8Array(nonce.length + ciphertext.length);
   macInput.set(nonce);
   macInput.set(ciphertext, nonce.length);
@@ -97,7 +73,6 @@ export function decryptPrivateKey(
   const plaintext = chacha20(encKey, nonce, ciphertext);
   const pem = new TextDecoder().decode(plaintext);
 
-  // Sanity check — a valid PKCS#8 PEM always starts with this header
   if (!pem.startsWith("-----BEGIN")) {
     throw new Error("decryptPrivateKey: decrypted output is not a valid PEM key");
   }

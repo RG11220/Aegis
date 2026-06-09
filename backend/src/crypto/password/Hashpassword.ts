@@ -1,6 +1,3 @@
-// Password hashing using our custom PBKDF2-HMAC-SHA256
-// Stores as "saltHex:hashHex"
-
 import { pbkdf2 } from "../primitives/Pbkdf2";
 import { webcrypto } from "crypto";
 
@@ -23,7 +20,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const hash    = pbkdf2(password, salt, ITERATIONS, KEY_LENGTH);
   const hashHex = Buffer.from(hash).toString("hex");
 
-  // Constant-time comparison to prevent timing attacks
+  // constant-time compare, no early exit
   if (hashHex.length !== storedHash.length) return false;
   let diff = 0;
   for (let i = 0; i < hashHex.length; i++)

@@ -70,7 +70,7 @@ const settings = () => {
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 40 }}
     >
-      {/* HEADER  */}
+      {/* header */}
       <View className="relative">
         <View className="items-center mt-10">
           <View className="relative">
@@ -98,7 +98,7 @@ const settings = () => {
             </Pressable>
           </View>
 
-          {/* NAME & EMAIL */}
+          {/* name + email */}
           <Text className="text-2xl font-bold text-foreground mt-4">
             {user?.firstName} {user?.lastName}
           </Text>
@@ -114,7 +114,7 @@ const settings = () => {
         </View>
       </View>
 
-      {/* KEY RECOVERY WARNING — shown when decryption failed after a password reset */}
+      {/* key recovery warning */}
       {keyLoadFailed && (
         <Pressable
           onPress={() => router.push('/recover')}
@@ -136,7 +136,7 @@ const settings = () => {
         </Pressable>
       )}
 
-      {/* MENU SECTIONS */}
+      {/* menu sections */}
       {MENU_SECTIONS.map((section) => (
         <View key={section.title} className="mt-6 mx-5">
           <Text className="text-subtle-foreground text-xs font-semibold uppercase tracking-wider mb-2 ml-1">
@@ -169,7 +169,7 @@ const settings = () => {
         </View>
       ))}
 
-      {/* Logout Button */}
+      {/* logout */}
       <Pressable
         className="mx-5 mt-8 bg-red-500/10 rounded-2xl py-4 items-center active:opacity-70 border border-red-500/20"
         onPress={() => signOut()}

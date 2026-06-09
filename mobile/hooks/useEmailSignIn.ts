@@ -1,22 +1,4 @@
-/**
- * Email sign-in hook.
- *
- * After Clerk verifies the password, we transparently:
- *   1. Fetch the encrypted private key blob from our backend
- *   2. Run PBKDF2(password) + ChaCha20 decrypt to recover the RSA private key
- *   3. Store both keys in the in-memory crypto session
- *
- * If the account has no keys yet (existing users before Phase 5), we generate
- * and register them on the spot using the password that's still in memory.
- *
- * If decryption fails (MAC mismatch — happens when the user reset their Clerk password
- * but the stored key blob is still encrypted with the old password), we set
- * `keyLoadFailed = true` in the crypto session. The settings screen will then show
- * a "Recover with seed phrase" prompt.
- *
- * The user sees nothing extra — it all happens in the background
- * while the normal auth redirect is taking place.
- */
+// sign in then load crypto keys in background
 
 import { useSignIn } from "@clerk/clerk-expo";
 import { useState } from "react";
@@ -67,8 +49,7 @@ function useEmailSignIn() {
             const status = fetchErr?.response?.status;
 
             if (status === 404) {
-              // No keys yet — provision them server-side (avoids freezing the JS
-              // thread with on-device RSA-2048 keygen which takes several seconds).
+              // no keys yet, provision server-side
               console.log("[Crypto] No keys found — provisioning via server");
 
               const { data } = await apiWithAuth<{ publicKey: string; privateKey: string }>({
@@ -93,7 +74,7 @@ function useEmailSignIn() {
               );
               setKeys(privateKeyPem, keysResponse.publicKey);
             } catch (decryptErr: any) {
-              console.warn("[Crypto] Key decryption failed — flagging for seed-phrase recovery:", decryptErr.message);
+              console.warn("[Crypto] decrypt failed, flag for recovery:", decryptErr.message);
               setKeyLoadFailed(true);
             }
           }

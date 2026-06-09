@@ -1,16 +1,4 @@
-/**
- * AuthSync — backend user sync + socket lifecycle manager.
- *
- * Ordering guarantee:
- *   1. isSignedIn becomes true
- *   2. POST /auth/callback → user row is confirmed in SQL DB
- *   3. Socket connects (clerkId lookup in socket middleware now succeeds)
- *   4. On sign-out: socket disconnects, sync flag resets
- *
- * The socket must NOT connect before step 2 — the socket middleware does
- * SELECT WHERE clerkId = ? and will return "User not found" if authCallback
- * hasn't run yet.
- */
+// sync user to backend, then connect socket
 
 import { useAuthCallback } from "@/hooks/useAuth";
 import { useEffect, useRef } from "react";
@@ -41,9 +29,7 @@ const AuthSync = () => {
             userName: data.name,
           });
 
-          // Invalidate queries that fired before the user row existed in SQL.
-          // protectRoute returns 404 if it can't find the clerkId yet, so any
-          // query that landed before this callback completed needs a refetch.
+          // refetch queries that ran before user row existed
           queryClient.invalidateQueries({ queryKey: ["chats"] });
           queryClient.invalidateQueries({ queryKey: ["users"] });
 

@@ -1,19 +1,4 @@
-/**
- * Email sign-up hook.
- *
- * After email verification completes, we transparently:
- *   1. Generate a random 24-word seed phrase
- *   2. Derive a deterministic RSA-2048 keypair from the seed
- *   3. Encrypt the private key with PBKDF2(password) + ChaCha20
- *   4. POST the encrypted blob + public key + seed phrase to our backend
- *      (backend stores the keys and emails the 24 words to the user)
- *   5. Store both keys in the in-memory crypto session
- *
- * The user only sees "Verifying…" — the seed phrase email arrives in the background.
- *
- * Note: the plaintext password is held in a ref between handleSignUp and
- * handleVerify (two separate user interactions). It is never persisted.
- */
+// sign up, verify email, generate + store keys in background
 
 import { InteractionManager } from "react-native";
 import { useSignUp } from "@clerk/clerk-expo";

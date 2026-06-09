@@ -1,12 +1,4 @@
-/**
- * MySQL query helpers for the Users table.
- * All crypto columns (publicKey, privateKey, keySalt) store hex/PEM strings;
- * decryption always happens on the client — the server is a blind relay.
- *
- * Note: the DB column is `UserEmail` (capital U+E). MySQL is case-insensitive
- * for identifiers in queries, but mysql2 returns keys with the exact DB casing,
- * so the UserRow interface mirrors that exactly.
- */
+// DB column is UserEmail (capital U+E)
 
 import _pool from "../config/database";
 import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
@@ -70,10 +62,7 @@ export const setUserVerified = async (userID: number): Promise<void> => {
   await execute("UPDATE Users SET isVerified = 1 WHERE userID = ?", [userID]);
 };
 
-/**
- * Store the user's RSA public key and encrypted private key blob.
- * Called once after account creation — server never sees the plaintext private key.
- */
+// store key blobs; server never sees plaintext
 export const storeUserKeys = async (
   userID: number,
   publicKey: string,
@@ -86,11 +75,6 @@ export const storeUserKeys = async (
   );
 };
 
-/**
- * Provision a user's full crypto set in one update: hashed password, public key,
- * encrypted private key, key salt, and mark the account verified (email was already
- * confirmed via the auth provider before this runs).
- */
 export const provisionUserCrypto = async (
   userID: number,
   hashedPassword: string,

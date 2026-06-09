@@ -18,7 +18,7 @@ const DEV_ORIGINS = [
 
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true); // native mobile / curl
+    if (!origin) return cb(null, true); // mobile or curl
     const allowed =
       process.env.NODE_ENV === 'production'
         ? origin === process.env.ALLOWED_ORIGIN

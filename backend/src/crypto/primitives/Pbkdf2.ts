@@ -1,7 +1,4 @@
-/**
- * PBKDF2-HMAC-SHA256 — RFC 2898 §5.2
- * Tested against RFC 6070 vectors (see Phase 7 test suite).
- */
+// RFC 2898
 
 import { hmacSha256 } from "./Hmac";
 
@@ -42,7 +39,7 @@ export function pbkdf2(
   const passwordBytes =
     typeof password === "string" ? new TextEncoder().encode(password) : password;
 
-  const hashLen = 32; // HMAC-SHA256 output is 32 bytes
+  const hashLen = 32;
   const blocksNeeded = Math.ceil(keyLength / hashLen);
   const result = new Uint8Array(keyLength);
 

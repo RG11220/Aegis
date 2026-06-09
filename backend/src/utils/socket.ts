@@ -13,11 +13,10 @@ interface UserRow extends RowDataPacket {
   userID: number;
 }
 
-// Fix 1: Store a Set of socketIds per userId to support multi-device
+// set of socketIds per user for multi-device
 export const onlineUsers: Map<string, Set<string>> = new Map();
 
 export const initializeSocket = (httpServer: HttpServer) => {
-  // Fix 2: Validate CLERK_SECRET_KEY at startup
   if (!process.env.CLERK_SECRET_KEY) {
     throw new Error("CLERK_SECRET_KEY is not set in environment variables");
   }
@@ -30,8 +29,7 @@ export const initializeSocket = (httpServer: HttpServer) => {
   ];
 
   const originFn = (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
-    // Native mobile clients send no Origin header — always allow
-    if (!origin) return cb(null, true);
+    if (!origin) return cb(null, true); // mobile or curl
     const allowed = process.env.NODE_ENV === "production"
       ? origin === process.env.FRONTEND_URL
       : DEV_ORIGINS.some((r) => r.test(origin));
@@ -65,13 +63,12 @@ export const initializeSocket = (httpServer: HttpServer) => {
   io.on("connection", (socket) => {
     const userId = socket.data.userId as string;
 
-    // Fix 1: Add socketId to the user's Set
     if (!onlineUsers.has(userId)) {
       onlineUsers.set(userId, new Set());
     }
     onlineUsers.get(userId)!.add(socket.id);
 
-    // Only broadcast online if this is their FIRST connection
+    // only broadcast if first connection
     if (onlineUsers.get(userId)!.size === 1) {
       socket.broadcast.emit("user-online", { userId });
     }
@@ -102,7 +99,7 @@ export const initializeSocket = (httpServer: HttpServer) => {
       try {
         const { chatId, cipherText, iv, encryptedKeys, signature, tempId } = data;
 
-        // Basic field validation — server is a blind relay; it never reads cipherText
+        // server is blind relay
         if (!chatId || !cipherText || !iv || !encryptedKeys || !signature) {
           socket.emit("socket-error", { message: "Missing required encrypted fields" });
           return;
@@ -118,7 +115,7 @@ export const initializeSocket = (httpServer: HttpServer) => {
           return;
         }
 
-        // Verify the sender has a key slot in encryptedKeys (must include themselves)
+        // sender must have own key slot
         if (!encryptedKeys[userId]) {
           socket.emit("socket-error", { message: "Sender key slot missing from encryptedKeys" });
           return;
@@ -131,14 +128,12 @@ export const initializeSocket = (httpServer: HttpServer) => {
           iv,
           encryptedKeys: new Map(Object.entries(encryptedKeys)),
           signature,
-          // text is intentionally omitted — server never stores plaintext
         });
 
         chat.lastMessage = message._id;
         chat.lastMessageAt = new Date();
         await chat.save();
 
-        // Serialise Map → plain object for JSON emission
         const messagePayload = {
           _id: message._id,
           chat: message.chat,
@@ -152,8 +147,6 @@ export const initializeSocket = (httpServer: HttpServer) => {
           originalTempId: tempId,
         };
 
-        // ACK the sender with the real message ID and chatId so cached messages
-        // can be updated without relying on a stale currentChatId.
         socket.emit("message-ack", { tempId, messageId: message._id, chatId });
 
         const chatRoom = io.sockets.adapter.rooms.get(`chat:${chatId}`);
@@ -196,12 +189,9 @@ export const initializeSocket = (httpServer: HttpServer) => {
     });
 
     socket.on("disconnect", () => {
-      // Fix 1: Remove only this socketId from the Set
       const sockets = onlineUsers.get(userId);
       if (sockets) {
         sockets.delete(socket.id);
-
-        // Only broadcast offline if they have NO remaining connections
         if (sockets.size === 0) {
           onlineUsers.delete(userId);
           socket.broadcast.emit("user-offline", { userId });

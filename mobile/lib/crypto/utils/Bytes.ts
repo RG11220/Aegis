@@ -1,19 +1,7 @@
-/**
- * Pure-JS base64 and hex encode/decode helpers.
- *
- * These replace Node's `Buffer.from(x, "base64")` / `Buffer.from(x).toString("base64")`
- * and the hex equivalents so the crypto layer runs in React Native / Hermes
- * without any Node built-ins.
- *
- * All functions are synchronous, allocation-minimal, and produce the same
- * output as their Buffer equivalents.
- */
-
-// ── Hex ───────────────────────────────────────────────────────────────────────
+// pure-JS hex + base64 helpers, no Node Buffer
 
 const HEX_CHARS = "0123456789abcdef";
 
-/** Encode a Uint8Array to a lowercase hex string. */
 export function bytesToHex(bytes: Uint8Array): string {
   let out = "";
   for (let i = 0; i < bytes.length; i++) {
@@ -23,7 +11,6 @@ export function bytesToHex(bytes: Uint8Array): string {
   return out;
 }
 
-/** Decode a hex string (even length, lowercase or uppercase) to Uint8Array. */
 export function hexToBytes(hex: string): Uint8Array {
   if (hex.length % 2 !== 0) throw new Error("hexToBytes: odd-length hex string");
   const out = new Uint8Array(hex.length / 2);
@@ -37,12 +24,10 @@ export function hexToBytes(hex: string): Uint8Array {
   return out;
 }
 
-// ── Base64 ────────────────────────────────────────────────────────────────────
 
 const B64_CHARS =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-/** Encode a Uint8Array to standard Base64 (with `=` padding). */
 export function bytesToBase64(bytes: Uint8Array): string {
   let out = "";
   const len = bytes.length;
@@ -61,20 +46,16 @@ export function bytesToBase64(bytes: Uint8Array): string {
   return out;
 }
 
-/** Build the Base64 decode lookup table (value 255 = invalid). */
+// lookup table, 255 = invalid
 const B64_LOOKUP: Uint8Array = (() => {
   const t = new Uint8Array(256).fill(255);
   for (let i = 0; i < 64; i++) t[B64_CHARS.charCodeAt(i)] = i;
-  t["=".charCodeAt(0)] = 0; // treat padding as 0 during decode
+  t["=".charCodeAt(0)] = 0;
   return t;
 })();
 
-/**
- * Decode a standard Base64 string (with or without `=` padding) to Uint8Array.
- * Tolerates whitespace (newlines in PEM blocks).
- */
+// tolerates whitespace (PEM line breaks)
 export function base64ToBytes(b64: string): Uint8Array {
-  // Strip whitespace (handles PEM line-breaks)
   const clean = b64.replace(/\s/g, "");
   const padded = clean.length % 4 === 0 ? clean : clean + "=".repeat(4 - (clean.length % 4));
 
