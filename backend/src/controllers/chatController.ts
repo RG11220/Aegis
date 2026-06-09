@@ -93,7 +93,7 @@ export async function createGroupChat(req: AuthRequest, res: Response, next: Nex
     const chat = await Chat.create({
       participantIds: allIds,
       isGroup: true,
-      name: name?.trim() || null,
+      name: name?.trim() || undefined,
     });
 
     const otherRows = rows.filter((r) => String(r.userID) !== String(userId));
