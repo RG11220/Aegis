@@ -187,7 +187,7 @@ export async function provisionKeys(req: AuthRequest, res: Response, next: NextF
       console.error("[provisionKeys] Seed phrase email failed (keys stored OK):", emailErr);
     }
 
-    res.status(200).json({ publicKey: publicKeyPem, privateKey: privateKeyPem });
+    res.status(200).json({ publicKey: publicKeyPem, privateKey: privateKeyPem, seedPhrase });
   } catch (error) {
     res.status(500);
     next(error);
@@ -203,18 +203,13 @@ export async function authCallback(req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const [existingRows] = await execute(
-      "SELECT userID, userName, userEmail, profilePicture, publicKey FROM Users WHERE clerkId = ? LIMIT 1",
-      [clerkId]
-    ) as [ClerkUserRow[], unknown];
-    if (existingRows[0]) {
-      res.status(200).json(mapUser(existingRows[0]));
-      return;
-    }
-
+    // Always pull the latest from Clerk so username / profile-picture changes propagate
+    // to the Users table — that's what everyone else reads (not Clerk directly).
     const clerkUser = await clerkClient.users.getUser(clerkId);
 
-    const name = (clerkUser.firstName
+    const name = (clerkUser.username
+      ? clerkUser.username
+      : clerkUser.firstName
       ? `${clerkUser.firstName} ${clerkUser.lastName || ""}`.trim()
       : clerkUser.emailAddresses[0]?.emailAddress?.split("@")[0] ?? "Unknown"
     ).slice(0, 100);

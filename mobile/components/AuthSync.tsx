@@ -6,7 +6,8 @@ import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSocketStore } from "@/lib/socket";
 import { useCryptoSession } from "@/lib/cryptoSession";
-import { loadPersistedKeys } from "@/lib/cryptoSessionStorage";
+import { loadPersistedKeys, clearPersistedKeys } from "@/lib/cryptoSessionStorage";
+import { keyPairMatches } from "@/lib/crypto/rsa/RsaSign";
 import * as Sentry from "@sentry/react-native";
 
 const AuthSync = () => {
@@ -17,6 +18,7 @@ const AuthSync = () => {
   const connect = useSocketStore((s) => s.connect);
   const disconnect = useSocketStore((s) => s.disconnect);
   const setKeys = useCryptoSession((s) => s.setKeys);
+  const setKeyLoadFailed = useCryptoSession((s) => s.setKeyLoadFailed);
   const privateKeyPem = useCryptoSession((s) => s.privateKeyPem);
   const hasSynced = useRef(false);
 
@@ -46,7 +48,15 @@ const AuthSync = () => {
             if (email) {
               const persisted = await loadPersistedKeys(email);
               if (persisted) {
-                setKeys(persisted.privateKeyPem, persisted.publicKeyPem);
+                // Guard against a stale/mismatched key pair in the keychain (e.g. from
+                // before the encoding fix) — don't restore a session that can't verify.
+                if (keyPairMatches(persisted.privateKeyPem, persisted.publicKeyPem)) {
+                  setKeys(persisted.privateKeyPem, persisted.publicKeyPem);
+                } else {
+                  console.warn("[CryptoStore] Persisted keys failed self-test — clearing");
+                  await clearPersistedKeys(email);
+                  setKeyLoadFailed(true);
+                }
               } else {
                 console.warn("[CryptoStore] No persisted keys found for:", email);
               }

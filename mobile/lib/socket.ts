@@ -271,29 +271,56 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     const payload = { chatId, ...encryptedPayload, tempId };
 
     await new Promise<void>((resolve, reject) => {
-      socket.emit("send-message", payload, (response: { error?: string; messageId?: string }) => {
-        if (response?.error) {
-          Sentry.logger.error("Failed to send message", {
+      // 15s timeout so a lost/never-sent ack surfaces as a clear failure instead of
+      // an infinite spinner (the callback gets an error first-arg on timeout).
+      socket
+        .timeout(15000)
+        .emit("send-message", payload, (timeoutErr: Error | null, response: { error?: string; messageId?: string }) => {
+          if (timeoutErr) {
+            Sentry.logger.error("Send timed out", { chatId, tempId });
+            Alert.alert("Message failed to send", "The server didn't respond. Check your connection and try again.");
+            queryClient.setQueryData<Message[]>(["messages", chatId], (old) =>
+              old?.filter((m) => m._id !== tempId) ?? []
+            );
+            reject(new Error("Send timed out"));
+            return;
+          }
+
+          if (response === undefined || response === null) {
+            Sentry.logger.error("Failed to send message: no acknowledgement", {
+              chatId,
+              tempId,
+            });
+            Alert.alert("Message failed to send", "The server returned no acknowledgement. Check your connection and try again.");
+            queryClient.setQueryData<Message[]>(["messages", chatId], (old) =>
+              old?.filter((m) => m._id !== tempId) ?? []
+            );
+            reject(new Error("No server acknowledgement received"));
+            return;
+          }
+
+          if (response.error) {
+            Sentry.logger.error("Failed to send message", {
+              chatId,
+              error: response.error,
+              tempId,
+            });
+            Alert.alert("Message failed to send", response.error ?? "An unknown error occurred.");
+            queryClient.setQueryData<Message[]>(["messages", chatId], (old) => {
+              if (!old) return [];
+              return old.filter((m) => m._id !== (response.messageId ?? tempId));
+            });
+            reject(new Error(response.error ?? "Message send failed"));
+            return;
+          }
+
+          Sentry.logger.info("Message sent successfully", {
             chatId,
-            error: response.error,
+            messageLength: plaintext.length,
             tempId,
           });
-          Alert.alert("Message failed to send", response.error ?? "An unknown error occurred.");
-          queryClient.setQueryData<Message[]>(["messages", chatId], (old) => {
-            if (!old) return [];
-            return old.filter((m) => m._id !== (response.messageId ?? tempId));
-          });
-          reject(new Error(response.error ?? "Message send failed"));
-          return;
-        }
-
-        Sentry.logger.info("Message sent successfully", {
-          chatId,
-          messageLength: plaintext.length,
-          tempId,
+          resolve();
         });
-        resolve();
-      });
     });
   },
 

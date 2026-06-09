@@ -22,6 +22,7 @@ export function useCryptoUnlock() {
   const { apiWithAuth } = useApi();
   const setKeys = useCryptoSession((s) => s.setKeys);
   const setKeyLoadFailed = useCryptoSession((s) => s.setKeyLoadFailed);
+  const setPendingSeedPhrase = useCryptoSession((s) => s.setPendingSeedPhrase);
   const [loading, setLoading] = useState(false);
 
   /**
@@ -91,6 +92,8 @@ export function useCryptoUnlock() {
         setKeys(privateKeyPem, publicKeyPem);
         const email = user?.primaryEmailAddress?.emailAddress;
         if (email) await persistKeys(email, privateKeyPem, publicKeyPem);
+        // show the recovery phrase once so the user can back it up
+        setPendingSeedPhrase(seedPhrase);
         console.log("[CryptoUnlock] provisioned new keys");
         return undefined;
       }

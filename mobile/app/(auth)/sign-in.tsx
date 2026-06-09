@@ -104,6 +104,13 @@ const SignInScreen = () => {
             )}
           </TouchableOpacity>
 
+          <TouchableOpacity onPress={() => router.push('/recover-account')} className='items-center py-1'>
+            <Text className='text-gray-500 text-sm'>
+              Forgot password?{' '}
+              <Text style={{ color: '#F4A261' }} className='font-semibold'>Recover account</Text>
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity onPress={() => router.push('/(auth)/sign-up')} className='items-center py-1'>
             <Text className='text-gray-500 text-sm'>
               No account?{' '}
