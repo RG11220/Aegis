@@ -48,16 +48,14 @@ const ChatDetailScreen = () => {
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Resolve the participant's public key from the chats cache.
-  // This avoids passing a long PEM through route params and updates when the
-  // chats cache changes.
+  // get pubkey from cache, not route params
   const chats = queryClient.getQueryData<Chat[]>(["chats"]);
   const participantPublicKey = useMemo(() => {
     const chat = chats?.find((c) => c._id === chatId);
     return chat?.participant.publicKey ?? null;
   }, [chatId, chats]);
 
-  // join chat room on mount, leave on unmount
+  // join/leave socket room
   useEffect(() => {
     if (chatId && isConnected) joinChat(chatId);
 
@@ -66,7 +64,7 @@ const ChatDetailScreen = () => {
     };
   }, [chatId, isConnected, joinChat, leaveChat]);
 
-  // scroll to bottom when new messages arrive
+  // scroll on new messages
   useEffect(() => {
     if (messages && messages.length > 0) {
       setTimeout(() => {
@@ -161,7 +159,6 @@ const ChatDetailScreen = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={["top", "bottom"]}>
-      {/* Header */}
       <View className="flex-row items-center px-4 py-2 bg-surface border-b border-surface-light">
         <Pressable onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#F4A261" />
@@ -216,7 +213,7 @@ const ChatDetailScreen = () => {
               {messages.map((message) => {
                 const isFromMe = currentUser ? message.senderId === currentUser._id : false;
 
-                // Determine the sender's public key for signature verification
+                // sender pubkey for sig verify
                 const senderPublicKey = isFromMe
                   ? (currentUser?.publicKey ?? null)
                   : participantPublicKey;
@@ -234,7 +231,7 @@ const ChatDetailScreen = () => {
             </ScrollView>
           )}
 
-          {/* Input bar */}
+          {/* input */}
           <View className="px-3 pb-3 pt-2 bg-surface border-t border-surface-light">
             <View className="flex-row items-end bg-surface-card rounded-3xl px-3 py-1.5 gap-2">
               <Pressable className="w-8 h-8 rounded-full items-center justify-center">

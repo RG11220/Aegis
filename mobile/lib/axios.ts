@@ -31,7 +31,7 @@ if (typeof process !== "undefined" && process.versions?.node) {
     const { Agent } = require("https");
     api.defaults.httpsAgent = new Agent({ rejectUnauthorized: true });
   } catch {
-    // If https.Agent is unavailable, rely on the native transport's TLS enforcement.
+    // fallback to native TLS
   }
 }
 
@@ -46,7 +46,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor registered once
+// response interceptor, log errors to sentry
 api.interceptors.response.use(
   (response) => response,
   (error) => {

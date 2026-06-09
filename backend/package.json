@@ -4,12 +4,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-  "dev": "bun --watch --env-file=.env index.ts",
-  "start": "bun --env-file=.env index.ts",
-  "build": "bun install"
-},
+    "dev": "bun --watch --env-file=.env index.ts",
+    "start": "bun --env-file=.env index.ts",
+    "build": "bun install"
+  },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/cors": "^2.8.19",
     "@types/node": "^25.5.0"
   },
   "peerDependencies": {

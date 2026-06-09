@@ -1,4 +1,4 @@
-// HMAC-SHA256 implemented from scratch — RFC 2104
+// HMAC-SHA256, RFC 2104
 
 import { sha256 } from "./Sha256";
 import { bytesToHex } from "../utils/Bytes";
@@ -35,6 +35,5 @@ export function hmacSha256(key: Uint8Array | string, message: Uint8Array | strin
 }
 
 export function hmacSha256Hex(key: Uint8Array | string, message: Uint8Array | string): string {
-  // No Buffer — use pure-JS bytesToHex from Bytes.ts
   return bytesToHex(hmacSha256(key, message));
 }

@@ -15,9 +15,7 @@ const getUserFriendlyDecryptionError = (error: unknown) => {
 interface MessageBubbleProps {
   message: Message;
   isFromMe: boolean;
-  /** Public key of the message sender — required to verify the signature. */
   senderPublicKeyPem: string | null;
-  /** Current user's ID — used to look up the correct encryptedKeys slot. */
   myUserId: string;
 }
 
@@ -25,10 +23,10 @@ function MessageBubble({ message, isFromMe, senderPublicKeyPem, myUserId }: Mess
   const { privateKeyPem } = useCryptoSession();
 
   const displayText = useMemo(() => {
-    // Optimistic / legacy messages already have plaintext
+    // already plaintext (optimistic or legacy)
     if (message.text) return message.text;
 
-    // Encrypted message — decrypt client-side
+    // encrypted, decrypt now
     if (message.cipherText && message.iv && message.encryptedKeys && message.signature) {
       if (!privateKeyPem) return "🔒 Keys not loaded";
       if (!senderPublicKeyPem) return "🔒 Sender key unavailable";

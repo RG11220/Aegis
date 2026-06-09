@@ -1,9 +1,9 @@
-FROM oven/bun:latest
+FROM oven/bun:1.3.6
 
 WORKDIR /app
 
 # build web frontend
-WORKDIR /app/web
+WORKDIR /app/frontend
 COPY web/package.json web/bun.lock* ./
 RUN bun install --frozen-lockfile
 COPY web/ ./
@@ -13,8 +13,6 @@ ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
-ARG VITE_CLERK_PUBLISHABLE_KEY
-ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
 RUN bun run build
 
 # install backend dependencies

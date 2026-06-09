@@ -1,4 +1,4 @@
-// HMAC-SHA256 implemented from scratch — RFC 2104
+// RFC 2104
 
 import { sha256 } from "./Sha256";
 

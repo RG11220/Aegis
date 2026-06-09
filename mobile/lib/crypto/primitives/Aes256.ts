@@ -1,28 +1,4 @@
-/**
- * AES-256 in CTR mode — implemented from scratch.
- *
- * Block cipher: NIST FIPS-197 (AES)
- * Mode:         NIST SP 800-38A Section 6.5 (CTR)
- *
- * Test vectors used for verification (see Phase 7 test suite):
- *   FIPS-197 Appendix B  — single AES-256 block encrypt
- *   SP 800-38A Appendix F.5 — AES-256-CTR encrypt/decrypt
- *
- * Internals:
- *   Key schedule  — 15 round keys (Nr=14 rounds, Nk=8 words) per FIPS-197 §5.2
- *   SubBytes      — S-box computed once via GF(2^8) multiplicative inverse + affine map
- *   ShiftRows     — row-wise left rotation per FIPS-197 §5.1.2
- *   MixColumns    — GF(2^8) polynomial multiplication per FIPS-197 §5.1.3
- *   AddRoundKey   — XOR with round key
- *   CTR keystream — AES(key, counter++) XOR plaintext; counter is big-endian 128-bit
- *
- * Public API:
- *   aesEncrypt(key: Uint8Array, iv: Uint8Array, plaintext: Uint8Array): Uint8Array
- *   aesDecrypt(key: Uint8Array, iv: Uint8Array, ciphertext: Uint8Array): Uint8Array
- *   (CTR mode is symmetric — encrypt and decrypt are the same operation)
- */
-
-// ── GF(2^8) arithmetic ───────────────────────────────────────────────────────
+// AES-256-CTR from scratch, FIPS-197
 
 function gmul(a: number, b: number): number {
   let p = 0;

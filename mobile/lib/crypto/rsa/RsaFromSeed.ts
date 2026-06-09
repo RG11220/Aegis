@@ -1,12 +1,4 @@
-// Deterministic RSA-2048 key generation from a mnemonic seed phrase
-// Same 24 words → always identical keys. Different words → unique keys.
-//
-// Chain:
-//   24 words → numeric seed string (SeedDictionary)
-//       → PBKDF2 key + nonce (SeedToKeyMaterial)
-//       → ChaCha20 keystream PRNG (SeededRng)
-//       → Miller-Rabin prime generation (MillerRabin)
-//       → RSA key math → PKCS#8 / SPKI PEM (RsaDer)
+// deterministic RSA from seed: words→seed→pbkdf2→chacha20 PRNG→primes→PEM
 
 import { seedStringFromWords } from "../seed/SeedDictionary";
 import { keyMaterialFromSeed } from "../seed/SeedToKeyMaterial";

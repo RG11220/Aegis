@@ -20,13 +20,11 @@ export interface IMessage extends Document {
   chat: mongoose.Types.ObjectId;
   senderId: string;
 
-  // ── Encrypted payload (set by Phase 6+) ──────────────────────────────────
   cipherText?: string;
   iv?: string;
-  encryptedKeys?: Map<string, string>; // userId → base64-encoded RSA-wrapped AES key
+  encryptedKeys?: Map<string, string>;
   signature?: string;
 
-  // ── Legacy plaintext field (transition only — remove after Phase 6) ──────
   text?: string;
 
   isDeleted: boolean;

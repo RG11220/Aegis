@@ -1,34 +1,23 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
 import React, { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useSignIn } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
+import useEmailSignIn from '@/hooks/useEmailSignIn'
 
 const SignInScreen = () => {
-  const { signIn, setActive, isLoaded } = useSignIn()
   const router = useRouter()
+  const { handleEmailSignIn, loading } = useEmailSignIn()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleSignIn = async () => {
-    if (!isLoaded) return
-    try {
-      setLoading(true)
-      setError('')
-      const result = await signIn.create({ identifier: email, password })
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId })
-      }
-    } catch (err: any) {
-      setError(err.errors?.[0]?.message ?? 'Something went wrong.')
-    } finally {
-      setLoading(false)
-    }
+    setError('')
+    const err = await handleEmailSignIn(email, password)
+    if (err) setError(err)
   }
 
   return (
@@ -37,7 +26,7 @@ const SignInScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className='flex-1'
       >
-        {/* Back button */}
+        {/* back */}
         <View className='px-6 pt-4'>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -47,16 +36,15 @@ const SignInScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Centered form area */}
         <View className='flex-1 justify-center px-6'>
-          {/* Accent bar + heading */}
+          {/* heading */}
           <View className='mb-8'>
             <View className='w-10 h-1 bg-primary-light rounded-full mb-4' />
             <Text className='text-white text-3xl font-bold'>Welcome{'\n'}back</Text>
             <Text className='text-gray-500 mt-2 text-sm'>Sign in to continue to Aegis.</Text>
           </View>
 
-          {/* Fields */}
+          {/* fields */}
           <View className='gap-4'>
             <View>
               <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>Email or Username</Text>
@@ -97,7 +85,7 @@ const SignInScreen = () => {
           </View>
         </View>
 
-        {/* CTA pinned to bottom */}
+        {/* cta */}
         <View className='px-6 pb-10 gap-4'>
           <TouchableOpacity
             onPress={handleSignIn}

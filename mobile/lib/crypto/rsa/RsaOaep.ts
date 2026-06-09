@@ -1,27 +1,13 @@
-/**
- * RSA-OAEP encryption and decryption — RFC 8017 §7.1
- *
- * Hash:  SHA-256 (hLen = 32 bytes)
- * MGF:   MGF1-SHA-256 (RFC 8017 Appendix B.2.1)
- * Label: empty string (lHash = SHA-256(b""))
- * Key:   RSA-2048 (k = 256 bytes)
- *
- * Used to wrap and unwrap the per-message AES-256 key:
- *   encrypt(recipientPublicKeyPem, aesKey32)  → 256-byte ciphertext
- *   decrypt(myPrivateKeyPem, ciphertext256)   → aesKey32
- *
- * Interop test vector (Phase 7): a value encrypted with WebCrypto RSA-OAEP-SHA256
- * using the same keypair must decrypt correctly here, and vice versa.
- */
+// RSA-OAEP-SHA256 wrap/unwrap for AES key
 
 import { sha256 } from "../primitives/Sha256";
 import { modPow, bytesToBigInt, bigIntToBytes } from "./RsaMath";
 import { parseSpkiPem, parsePkcs8Pem } from "./RsaDerParse";
 
-// SHA-256("") — constant label hash for empty-string OAEP label
+// SHA-256("") for empty OAEP label
 const EMPTY_LABEL_HASH: Uint8Array = sha256(new Uint8Array(0));
 
-// ── MGF1 (RFC 8017 Appendix B.2.1) ──────────────────────────────────────────
+// MGF1-SHA256
 
 function mgf1(seed: Uint8Array, maskLen: number): Uint8Array {
   const hLen = 32;
@@ -46,7 +32,6 @@ function mgf1(seed: Uint8Array, maskLen: number): Uint8Array {
   return T.slice(0, maskLen);
 }
 
-// ── XOR helpers ───────────────────────────────────────────────────────────────
 
 function xorBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
   const out = new Uint8Array(a.length);
@@ -54,7 +39,6 @@ function xorBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
   return out;
 }
 
-// ── OAEP encode / decode ──────────────────────────────────────────────────────
 
 function oaepEncode(message: Uint8Array, k: number): Uint8Array {
   const hLen = 32;
@@ -107,8 +91,6 @@ function oaepDecode(EM: Uint8Array, k: number): Uint8Array {
 
   return DB.slice(sepIdx + 1);
 }
-
-// ── Public API ────────────────────────────────────────────────────────────────
 
 export function rsaOaepEncrypt(publicKeyPem: string, message: Uint8Array): Uint8Array {
   const { n, e } = parseSpkiPem(publicKeyPem);

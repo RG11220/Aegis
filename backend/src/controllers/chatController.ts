@@ -65,7 +65,7 @@ export async function getOrCreateChat(req: AuthRequest, res: Response, next: Nex
   return;
 }
 
-// ✅ ADD THIS
+//  ADD THIS
 const [userRows] = await execute(
   "SELECT userID FROM Users WHERE userID = ? LIMIT 1",
   [targetUserId]

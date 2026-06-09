@@ -9,7 +9,7 @@ const ChatItem = ({ chat, onPress }: { chat: Chat; onPress: () => void }) => {
 
   const { onlineUsers, typingUsers, unreadChats } = useSocketStore();
 
-  // Guard: participant may be null if the other user was deleted or not yet populated
+  // skip if participant missing
   if (!participant) return null;
 
   const isOnline = onlineUsers.has(participant._id);
@@ -18,7 +18,7 @@ const ChatItem = ({ chat, onPress }: { chat: Chat; onPress: () => void }) => {
 
   return (
     <Pressable className="flex-row items-center py-3 active:opacity-70" onPress={onPress}>
-      {/* avatar & online indicator */}
+      {/* avatar */}
       <View className="relative">
         <Image source={participant.avatar} style={{ width: 56, height: 56, borderRadius: 999 }} />
         {isOnline && (
@@ -26,7 +26,7 @@ const ChatItem = ({ chat, onPress }: { chat: Chat; onPress: () => void }) => {
         )}
       </View>
 
-      {/* chat info */}
+      {/* info */}
       <View className="flex-1 ml-4">
         <View className="flex-row items-center justify-between">
           <Text

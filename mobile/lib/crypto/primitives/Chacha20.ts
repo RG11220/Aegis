@@ -1,4 +1,4 @@
-// ChaCha20 stream cipher implemented from scratch — RFC 7539
+// ChaCha20 stream cipher, RFC 7539
 
 function rotl32(x: number, n: number): number {
   return ((x << n) | (x >>> (32 - n))) >>> 0;

@@ -1,10 +1,4 @@
-/**
- * Account Recovery Screen (root-level, accessible while signed in to Clerk)
- *
- * Shown when a user has reset their Clerk password but their encrypted private
- * key still uses the old password. The user enters their 24-word seed phrase
- * and their new (current) password to re-encrypt the key.
- */
+// recovery screen — re-encrypt key with new password via seed phrase
 
 import React, { useRef, useState } from 'react'
 import {
@@ -77,7 +71,6 @@ const RecoverScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className='flex-1'
       >
-        {/* Back button */}
         <View className='px-6 pt-4'>
           <TouchableOpacity
             onPress={() => router.back()}
@@ -92,7 +85,6 @@ const RecoverScreen = () => {
           keyboardShouldPersistTaps='handled'
           showsVerticalScrollIndicator={false}
         >
-          {/* Heading */}
           <View className='mt-6 mb-8'>
             <View className='w-10 h-1 bg-primary-light rounded-full mb-4' />
             <Text className='text-white text-3xl font-bold'>Recover{'\n'}Account</Text>
@@ -101,7 +93,7 @@ const RecoverScreen = () => {
             </Text>
           </View>
 
-          {/* Word grid — 3 columns × 8 rows */}
+          {/* word grid */}
           <View className='mb-6'>
             <Text className='text-gray-400 text-xs font-medium mb-3 uppercase tracking-widest'>
               Recovery Words
@@ -141,7 +133,7 @@ const RecoverScreen = () => {
             ))}
           </View>
 
-          {/* Password field */}
+          {/* password */}
           <View className='mb-8'>
             <Text className='text-gray-400 text-xs font-medium mb-2 uppercase tracking-widest'>
               Current Password
@@ -161,7 +153,7 @@ const RecoverScreen = () => {
             </View>
           </View>
 
-          {/* Error */}
+          {/* error */}
           {error ? (
             <View className='flex-row items-center gap-2 mb-4'>
               <Feather name='alert-circle' size={14} color='#f87171' />
@@ -169,7 +161,7 @@ const RecoverScreen = () => {
             </View>
           ) : null}
 
-          {/* Submit */}
+          {/* submit */}
           <TouchableOpacity
             onPress={onSubmit}
             disabled={loading || !allFilled || !allValid || !password}

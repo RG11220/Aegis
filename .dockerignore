@@ -2,11 +2,11 @@ node_modules
 npm-debug.log
 .git
 .gitignore
-README.md
+README*.md
 .env
 .env.local
 .DS_Store
 .expo
 mobile
-.md
+*.md
 .vscode

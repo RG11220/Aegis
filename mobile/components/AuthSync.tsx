@@ -1,16 +1,4 @@
-/**
- * AuthSync — backend user sync + socket lifecycle manager.
- *
- * Ordering guarantee:
- *   1. isSignedIn becomes true
- *   2. POST /auth/callback → user row is confirmed in SQL DB
- *   3. Socket connects (clerkId lookup in socket middleware now succeeds)
- *   4. On sign-out: socket disconnects, sync flag resets
- *
- * The socket must NOT connect before step 2 — the socket middleware does
- * SELECT WHERE clerkId = ? and will return "User not found" if authCallback
- * hasn't run yet.
- */
+// sync user to backend, then connect socket
 
 import { useAuthCallback } from "@/hooks/useAuth";
 import { useEffect, useRef } from "react";
@@ -32,24 +20,27 @@ const AuthSync = () => {
     if (!isLoaded) return;
 
     if (isSignedIn && user && !hasSynced.current) {
+      hasSynced.current = true;
       syncUser(undefined, {
         onSuccess: (data) => {
-          hasSynced.current = true;
           console.log(" User synced with backend:", data.name);
           Sentry.logger.info(Sentry.logger.fmt`User synced: ${data.name}`, {
             userId: user.id,
             userName: data.name,
           });
 
-          // ✅ User is now confirmed in the SQL DB — safe to open the socket.
+          // refetch queries that ran before user row existed
+          queryClient.invalidateQueries({ queryKey: ["chats"] });
+          queryClient.invalidateQueries({ queryKey: ["users"] });
+
           connect(getToken, queryClient);
         },
-        onError: (error) => {
-          hasSynced.current = false;
-          console.log("❌ User sync failed:", error);
+        onError: (error: any) => {
+          const serverMessage = error?.response?.data?.message ?? error?.message ?? String(error);
+          console.log("❌ User sync failed:", error?.response?.status, serverMessage);
           Sentry.logger.error("Failed to sync user with backend", {
             userId: user.id,
-            error: error instanceof Error ? error.message : String(error),
+            error: serverMessage,
           });
         },
       });

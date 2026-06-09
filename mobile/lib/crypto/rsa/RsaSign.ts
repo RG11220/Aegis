@@ -1,18 +1,10 @@
-/**
- * RSA-PKCS#1 v1.5 signature and verification — RFC 8017 §8.2
- *
- * Hash:  SHA-256
- * Key:   RSA-2048
- *
- * Signed string (canonical form):
- *   `${senderId}:${chatId}:${iv}:${cipherText}`
- */
+// RSA-PKCS1v15 sign/verify, SHA-256, canonical: senderId:chatId:iv:ct
 
 import { sha256 } from "../primitives/Sha256";
 import { modPow, bytesToBigInt, bigIntToBytes } from "./RsaMath";
 import { parseSpkiPem, parsePkcs8Pem } from "./RsaDerParse";
 
-// ── DigestInfo prefix ─────────────────────────────────────────────────────────
+// SHA-256 DigestInfo prefix
 
 const SHA256_DIGEST_INFO_PREFIX = new Uint8Array([
   0x30, 0x31,
@@ -22,7 +14,7 @@ const SHA256_DIGEST_INFO_PREFIX = new Uint8Array([
   0x04, 0x20,
 ]);
 
-// ── PKCS#1 v1.5 pad / unpad ──────────────────────────────────────────────────
+// pkcs1v15 padding
 
 function emsaPkcs1v15Encode(messageHash: Uint8Array, k: number): Uint8Array {
   const T = new Uint8Array(SHA256_DIGEST_INFO_PREFIX.length + 32);
@@ -48,7 +40,6 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
 
 export function rsaSign(privateKeyPem: string, canonical: string): string {
   const { n, d } = parsePkcs8Pem(privateKeyPem);

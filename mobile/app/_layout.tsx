@@ -1,6 +1,4 @@
-// Must be the FIRST import: installs globalThis.crypto.getRandomValues for Hermes,
-// which the from-scratch crypto (seed/keygen/AES/RSA) depends on. Without it,
-// key generation throws and sign-up silently fails to provision keys.
+// must be first — polyfills crypto.getRandomValues for Hermes
 import "react-native-get-random-values";
 import { Stack } from "expo-router";
 import "../global.css";
@@ -12,22 +10,14 @@ import { StatusBar } from "expo-status-bar";
 import { LogBox } from "react-native";
 import * as Sentry from '@sentry/react-native';
 
-// NativeWind 4 / react-native-css-interop wraps FlatList/VirtualizedList
-// internally and produces a false-positive key warning. The keyExtractor on
-// our FlatList is correct — this suppresses the library-level noise.
+// suppress false-positive key warning from NativeWind FlatList wrapping
 LogBox.ignoreLogs(["Each child in a list should have a unique"]);
 
 Sentry.init({
   dsn: 'https://33c85c5153605087a4ca581c0f5356ca@o4511445146730496.ingest.de.sentry.io/4511445154267216',
 
-  // Adds more context data to events (IP address, cookies, user, etc.)
-  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
   sendDefaultPii: true,
-
-  // Enable Logs
   enableLogs: true,
-
-  // Configure Session Replay
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1,
   integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration(),
@@ -39,8 +29,7 @@ Sentry.init({
     }),
   ],
 
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // spotlight: __DEV__,
+  // spotlight: __DEV__, // uncomment for Spotlight
 });
 
 
