@@ -82,7 +82,7 @@ const CryptoUnlockModal = () => {
             {/* Icon */}
             <View style={{ alignItems: "center", marginBottom: 16 }}>
               <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "#1a1a1e", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#2e2e32" }}>
-                <Ionicons name="lock-closed" size={26} color="#F4A261" />
+                <Ionicons name="lock-closed" size={26} color="#00876F" />
               </View>
             </View>
 
@@ -136,14 +136,14 @@ const CryptoUnlockModal = () => {
 
             {/* Submit */}
             <Pressable
-              style={{ backgroundColor: "#F4A261", borderRadius: 12, paddingVertical: 14, alignItems: "center" }}
+              style={{ backgroundColor: "#00876F", borderRadius: 12, paddingVertical: 14, alignItems: "center" }}
               onPress={handleSubmit}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#0D0D0F" />
+                <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={{ color: "#0D0D0F", fontWeight: "600", fontSize: 16 }}>
+                <Text style={{ color: "#ffffff", fontWeight: "600", fontSize: 16 }}>
                   {isNewUser ? "Set Password & Continue" : "Unlock"}
                 </Text>
               )}
@@ -156,7 +156,7 @@ const CryptoUnlockModal = () => {
                 onPress={() => router.push("/recover-account")}
                 style={{ paddingVertical: 12, alignItems: "center", marginTop: 4 }}
               >
-                <Text style={{ color: "#F4A261", fontSize: 14, fontWeight: "600" }}>
+                <Text style={{ color: "#00876F", fontSize: 14, fontWeight: "600" }}>
                   Forgot password? Recover with seed phrase
                 </Text>
               </Pressable>

@@ -119,7 +119,7 @@ const AuthScreen = () => {
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, marginTop: 14 })}
           >
             <Text className="text-muted-foreground text-xs text-center">
-              Lost access? <Text style={{ color: "#F4A261", fontWeight: "600" }}>Recover account</Text>
+              Lost access? <Text style={{ color: "#00876F", fontWeight: "600" }}>Recover account</Text>
             </Text>
           </Pressable>
         </View>

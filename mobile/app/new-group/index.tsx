@@ -93,13 +93,13 @@ const NewGroupScreen = () => {
             <Pressable
               onPress={handleCreate}
               disabled={!canCreate}
-              className={`px-4 py-2 rounded-full ${canCreate ? "bg-primary" : "bg-surface-card"}`}
+              className={`px-4 py-2 rounded-full ${canCreate ? "bg-primary-light" : "bg-surface-card"}`}
             >
               {isCreating ? (
-                <ActivityIndicator size="small" color="#0D0D0F" />
+                <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <Text
-                  className={`text-sm font-semibold ${canCreate ? "text-surface-dark" : "text-muted-foreground"}`}
+                  className={`text-sm font-semibold ${canCreate ? "text-white" : "text-muted-foreground"}`}
                 >
                   Create
                 </Text>
@@ -108,16 +108,26 @@ const NewGroupScreen = () => {
           </View>
 
           {/* group name */}
-          <View className="px-5 pt-3 pb-2 bg-surface border-b border-surface-light">
-            <View className="flex-row items-center bg-surface-card rounded-full px-3 py-1.5 gap-2 border border-surface-light">
-              <Ionicons name="people-outline" size={18} color="#6B6B70" />
+          <View className="px-5 pt-4 pb-3 bg-surface border-b border-surface-light">
+            <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-widest mb-2">
+              Group Name
+            </Text>
+            <View className="flex-row items-center bg-surface-card rounded-2xl px-4 py-1 gap-3 border border-surface-light">
+              <Ionicons name="people-outline" size={18} color="#00876F" />
               <TextInput
-                placeholder="Group name (optional)"
+                placeholder="Enter a group name…"
                 placeholderTextColor="#6B6B70"
-                className="flex-1 text-foreground text-sm"
+                className="flex-1 text-foreground text-base"
+                style={{ paddingVertical: 10 }}
                 value={groupName}
                 onChangeText={setGroupName}
+                returnKeyType="done"
               />
+              {groupName.length > 0 && (
+                <Pressable onPress={() => setGroupName("")}>
+                  <Ionicons name="close-circle" size={18} color="#6B6B70" />
+                </Pressable>
+              )}
             </View>
           </View>
 

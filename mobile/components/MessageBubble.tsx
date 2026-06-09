@@ -61,7 +61,7 @@ function MessageBubble({ message, isFromMe, senderPublicKeyPem, myUserId }: Mess
         className={`max-w-[80%] px-3 py-2 rounded-2xl ${
           isFromMe
             ? "bg-primary rounded-br-sm"
-            : "bg-surface-card rounded-bl-sm border border-surface-light"
+            : "bg-surface-light rounded-bl-sm border border-surface-light"
         }`}
       >
         <Text className={`text-sm ${isFromMe ? "text-surface-dark" : "text-foreground"}`}>

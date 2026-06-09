@@ -13,7 +13,7 @@ const ChatsTab = () => {
   if (isLoading) {
     return (
       <View className="flex-1 bg-surface items-center justify-center">
-        <ActivityIndicator size={"large"} color={"#4f7e64"} />
+        <ActivityIndicator size={"large"} color={"#00876F"} />
       </View>
     );
   }

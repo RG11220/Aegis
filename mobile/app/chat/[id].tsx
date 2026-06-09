@@ -17,9 +17,10 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useChats } from "@/hooks/useChats";
+import { useChats, useUpdateGroupName } from "@/hooks/useChats";
 import type { Chat, MessageSender } from "@/types";
 import { useCryptoSession } from "@/lib/cryptoSession";
 
@@ -42,6 +43,9 @@ const ChatDetailScreen = () => {
 
   const [messageText, setMessageText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [groupNameInput, setGroupNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const { data: currentUser } = useCurrentUser();
@@ -52,6 +56,7 @@ const ChatDetailScreen = () => {
 
   const { joinChat, leaveChat, sendMessage, sendTyping, isConnected, onlineUsers, typingUsers } =
     useSocketStore();
+  const { mutateAsync: updateGroupName } = useUpdateGroupName();
 
   // --- DM-only helpers ---
   const isOnline = !isGroup && participantId ? onlineUsers.has(participantId) : false;
@@ -83,7 +88,7 @@ const ChatDetailScreen = () => {
 
   // Group display name
   const displayName = isGroup
-    ? (groupName || cachedChat?.name || cachedChat?.participants?.map((p) => p.name).join(", ") || "Group")
+    ? (groupName || cachedChat?.name || "Group Chat")
     : (name ?? "");
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -192,6 +197,25 @@ const ChatDetailScreen = () => {
     }
   };
 
+  const openGroupInfo = () => {
+    setGroupNameInput(cachedChat?.name ?? "");
+    setShowGroupInfo(true);
+  };
+
+  const handleSaveGroupName = async () => {
+    const trimmed = groupNameInput.trim();
+    if (!trimmed) return;
+    setSavingName(true);
+    try {
+      await updateGroupName({ chatId, name: trimmed });
+      setShowGroupInfo(false);
+    } catch {
+      Alert.alert("Error", "Could not update group name.");
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   // Resolve sender pubkey for a given message (needed for sig verify in MessageBubble)
   const getSenderPublicKey = (senderId: string): string | null => {
     if (isGroup) {
@@ -209,13 +233,18 @@ const ChatDetailScreen = () => {
   };
 
   return (
+    <>
     <SafeAreaView className="flex-1 bg-surface" edges={["top", "bottom"]}>
       {/* header */}
       <View className="flex-row items-center px-4 py-2 bg-surface border-b border-surface-light">
-        <Pressable onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#F4A261" />
+        <Pressable onPress={() => router.back()} className="p-1">
+          <Ionicons name="arrow-back" size={24} color="#00876F" />
         </Pressable>
-        <View className="flex-row items-center flex-1 ml-2">
+        <Pressable
+          className="flex-row items-center flex-1 ml-2"
+          onPress={() => isGroup && openGroupInfo()}
+          disabled={!isGroup}
+        >
           {isGroup ? (
             <View className="w-10 h-10 rounded-full bg-surface-card items-center justify-center border border-surface-light">
               <Ionicons name="people" size={20} color="#6B6B70" />
@@ -223,10 +252,13 @@ const ChatDetailScreen = () => {
           ) : (
             avatar && <Image source={avatar} style={{ width: 40, height: 40, borderRadius: 999 }} />
           )}
-          <View className="ml-3">
-            <Text className="text-foreground font-semibold text-base" numberOfLines={1}>
-              {displayName}
-            </Text>
+          <View className="ml-3 flex-1">
+            <View className="flex-row items-center gap-1">
+              <Text className="text-foreground font-semibold text-base" numberOfLines={1}>
+                {displayName}
+              </Text>
+              {isGroup && <Ionicons name="chevron-down" size={14} color="#6B6B70" />}
+            </View>
             {isGroup ? (
               <Text className={`text-xs ${isTyping ? "text-primary" : "text-muted-foreground"}`}>
                 {isTyping
@@ -239,7 +271,7 @@ const ChatDetailScreen = () => {
               </Text>
             )}
           </View>
-        </View>
+        </Pressable>
         <View className="flex-row items-center gap-3">
           <Pressable className="w-9 h-9 rounded-full items-center justify-center">
             <Ionicons name="call-outline" size={20} color="#A0A0A5" />
@@ -258,7 +290,7 @@ const ChatDetailScreen = () => {
         <View className="flex-1 bg-surface">
           {isLoading ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="#F4A261" />
+              <ActivityIndicator size="large" color="#00876F" />
             </View>
           ) : !messages || messages.length === 0 ? (
             <EmptyUI
@@ -271,7 +303,7 @@ const ChatDetailScreen = () => {
           ) : (
             <ScrollView
               ref={scrollViewRef}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}
+              contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}
               onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: false })}
             >
               {messages.map((message) => {
@@ -295,7 +327,7 @@ const ChatDetailScreen = () => {
           <View className="px-3 pb-3 pt-2 bg-surface border-t border-surface-light">
             <View className="flex-row items-end bg-surface-card rounded-3xl px-3 py-1.5 gap-2">
               <Pressable className="w-8 h-8 rounded-full items-center justify-center">
-                <Ionicons name="add" size={22} color="#F4A261" />
+                <Ionicons name="add" size={22} color="#00876F" />
               </Pressable>
 
               <TextInput
@@ -311,21 +343,115 @@ const ChatDetailScreen = () => {
               />
 
               <Pressable
-                className="w-8 h-8 rounded-full items-center justify-center bg-primary"
+                className="w-10 h-10 rounded-full items-center justify-center bg-primary-light"
                 onPress={handleSend}
                 disabled={!messageText.trim() || isSending}
               >
                 {isSending ? (
-                  <ActivityIndicator size="small" color="#0D0D0F" />
+                  <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Ionicons name="send" size={18} color="#0D0D0F" />
+                  <Ionicons name="send" size={18} color="#ffffff" />
                 )}
               </Pressable>
             </View>
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Group Info Sheet */}
+      <Modal
+        visible={showGroupInfo}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowGroupInfo(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}
+          onPress={() => setShowGroupInfo(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{ backgroundColor: "#1A1A1D", borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "80%", paddingBottom: 32 }}
+          >
+            {/* handle */}
+            <View style={{ alignItems: "center", paddingTop: 12, paddingBottom: 4 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: "#3a3a3e" }} />
+            </View>
+
+            {/* header row */}
+            <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#2D2D30" }}>
+              <Text style={{ flex: 1, color: "#F4F4F5", fontSize: 18, fontWeight: "700" }}>Group Info</Text>
+              <Pressable onPress={() => setShowGroupInfo(false)} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#242428", alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="close" size={18} color="#9CA3AF" />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {/* group name edit */}
+              <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 }}>
+                <Text style={{ color: "#9CA3AF", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+                  Group Name
+                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#242428", borderRadius: 14, borderWidth: 1, borderColor: "#2D2D30", paddingHorizontal: 14, paddingVertical: 4, gap: 8 }}>
+                  <TextInput
+                    value={groupNameInput}
+                    onChangeText={setGroupNameInput}
+                    placeholder="Enter group name…"
+                    placeholderTextColor="#6B6B70"
+                    autoCorrect={false}
+                    style={{ flex: 1, color: "#F4F4F5", fontSize: 15, paddingVertical: 10 }}
+                    returnKeyType="done"
+                    onSubmitEditing={handleSaveGroupName}
+                  />
+                  {groupNameInput.trim().length > 0 && (
+                    <Pressable
+                      onPress={handleSaveGroupName}
+                      disabled={savingName}
+                      style={{ backgroundColor: "#00876F", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 }}
+                    >
+                      {savingName
+                        ? <ActivityIndicator size="small" color="#fff" />
+                        : <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13 }}>Save</Text>
+                      }
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+
+              {/* member list */}
+              <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+                <Text style={{ color: "#9CA3AF", fontSize: 11, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
+                  Members · {(cachedChat?.participants?.length ?? 0) + 1}
+                </Text>
+
+                {/* current user */}
+                {currentUser && (
+                  <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, gap: 12 }}>
+                    <Image source={currentUser.avatar} style={{ width: 42, height: 42, borderRadius: 999 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: "#F4F4F5", fontWeight: "600", fontSize: 14 }}>{currentUser.name}</Text>
+                      <Text style={{ color: "#6B6B70", fontSize: 12 }}>You</Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* other participants */}
+                {(cachedChat?.participants ?? []).map((p) => (
+                  <View key={p._id} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, gap: 12 }}>
+                    <Image source={p.avatar} style={{ width: 42, height: 42, borderRadius: 999 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: "#F4F4F5", fontWeight: "600", fontSize: 14 }}>{p.name}</Text>
+                      <Text style={{ color: "#6B6B70", fontSize: 12 }}>{p.email}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
+    </>
   );
 };
 

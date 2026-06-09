@@ -51,3 +51,22 @@ export const useCreateGroupChat = () => {
     },
   });
 };
+
+export const useUpdateGroupName = () => {
+  const { apiWithAuth } = useApi();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ chatId, name }: { chatId: string; name: string }) => {
+      const { data } = await apiWithAuth<Chat>({
+        method: "PATCH",
+        url: `/chats/${chatId}`,
+        data: { name },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
+    },
+  });
+};

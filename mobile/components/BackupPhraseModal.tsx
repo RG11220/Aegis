@@ -26,7 +26,7 @@ const BackupPhraseModal = () => {
         <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 64, paddingBottom: 40 }}>
           <View style={{ alignItems: "center", marginBottom: 16 }}>
             <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "#1a1a1e", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#2e2e32" }}>
-              <Ionicons name="key" size={26} color="#F4A261" />
+              <Ionicons name="key" size={26} color="#00876F" />
             </View>
           </View>
 
@@ -48,9 +48,9 @@ const BackupPhraseModal = () => {
           </View>
 
           {/* warning */}
-          <View style={{ flexDirection: "row", gap: 8, backgroundColor: "#3a2000", borderRadius: 12, borderWidth: 1, borderColor: "#f4a26155", padding: 12, marginBottom: 20 }}>
-            <Ionicons name="warning-outline" size={18} color="#F4A261" />
-            <Text style={{ color: "#e7c9a3", fontSize: 12, flex: 1, lineHeight: 18 }}>
+          <View style={{ flexDirection: "row", gap: 8, backgroundColor: "#002e26", borderRadius: 12, borderWidth: 1, borderColor: "#00876F55", padding: 12, marginBottom: 20 }}>
+            <Ionicons name="warning-outline" size={18} color="#00876F" />
+            <Text style={{ color: "#a3e0d4", fontSize: 12, flex: 1, lineHeight: 18 }}>
               Never share these words. Anyone who has them can read your messages. Aegis will never ask you for them.
             </Text>
           </View>
@@ -69,9 +69,9 @@ const BackupPhraseModal = () => {
           <Pressable
             onPress={done}
             disabled={!confirmed}
-            style={{ backgroundColor: "#F4A261", borderRadius: 12, paddingVertical: 14, alignItems: "center", opacity: confirmed ? 1 : 0.45 }}
+            style={{ backgroundColor: "#00876F", borderRadius: 12, paddingVertical: 14, alignItems: "center", opacity: confirmed ? 1 : 0.45 }}
           >
-            <Text style={{ color: "#0D0D0F", fontWeight: "700", fontSize: 16 }}>Continue</Text>
+            <Text style={{ color: "#ffffff", fontWeight: "700", fontSize: 16 }}>Continue</Text>
           </Pressable>
         </ScrollView>
       </View>

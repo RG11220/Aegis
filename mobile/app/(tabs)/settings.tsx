@@ -132,11 +132,11 @@ const settings = () => {
         <Pressable
           onPress={() => router.push("/recover-account")}
           className="mx-5 mt-6 rounded-2xl overflow-hidden active:opacity-80"
-          style={{ backgroundColor: "#3a2000", borderWidth: 1, borderColor: "#f4a26155" }}
+          style={{ backgroundColor: "#002e26", borderWidth: 1, borderColor: "#00876F55" }}
         >
           <View className="flex-row items-center px-4 py-4 gap-3">
-            <View className="w-10 h-10 rounded-xl items-center justify-center" style={{ backgroundColor: "#f4a26122" }}>
-              <Ionicons name="key-outline" size={20} color="#F4A261" />
+            <View className="w-10 h-10 rounded-xl items-center justify-center" style={{ backgroundColor: "#00876F22" }}>
+              <Ionicons name="key-outline" size={20} color="#00876F" />
             </View>
             <View className="flex-1">
               <Text className="text-white font-semibold text-sm">Encryption keys not loaded</Text>
@@ -144,7 +144,7 @@ const settings = () => {
                 Tap to recover with your 24-word seed phrase.
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#F4A261" />
+            <Ionicons name="chevron-forward" size={18} color="#00876F" />
           </View>
         </Pressable>
       )}
@@ -157,8 +157,8 @@ const settings = () => {
             accessibilityRole="button"
             className="flex-row items-center px-4 py-3.5 active:bg-surface-light"
           >
-            <View className="w-9 h-9 rounded-xl items-center justify-center" style={{ backgroundColor: "#F4A26120" }}>
-              <Ionicons name="person-outline" size={20} color="#F4A261" />
+            <View className="w-9 h-9 rounded-xl items-center justify-center" style={{ backgroundColor: "#00876F20" }}>
+              <Ionicons name="person-outline" size={20} color="#00876F" />
             </View>
             <Text className="flex-1 ml-3 text-foreground font-medium">Edit Profile</Text>
             <Ionicons name="chevron-forward" size={18} color="#6B6B70" />
