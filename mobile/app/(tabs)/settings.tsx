@@ -75,8 +75,8 @@ const settings = () => {
   const saveProfile = async () => {
     if (!user) return;
     const next = username.trim();
-    if (next.length < 3) {
-      Alert.alert("Invalid username", "Username must be at least 3 characters.");
+    if (next.length < 4) {
+      Alert.alert("Invalid username", "Username must be at least 4 characters.");
       return;
     }
     setSavingProfile(true);
@@ -125,16 +125,12 @@ const settings = () => {
         <Text className="text-2xl font-bold text-foreground mt-4">{displayName}</Text>
         <Text className="text-muted-foreground mt-1">{user?.emailAddresses[0]?.emailAddress}</Text>
 
-        <View className="flex-row items-center mt-3 bg-green-500/20 px-3 py-1.5 rounded-full">
-          <View className="w-2 h-2 bg-green-500 rounded-full mr-2" />
-          <Text className="text-green-500 text-sm font-medium">Online</Text>
-        </View>
       </View>
 
       {/* key recovery warning */}
       {keyLoadFailed && (
         <Pressable
-          onPress={() => router.push("/recover")}
+          onPress={() => router.push("/recover-account")}
           className="mx-5 mt-6 rounded-2xl overflow-hidden active:opacity-80"
           style={{ backgroundColor: "#3a2000", borderWidth: 1, borderColor: "#f4a26155" }}
         >

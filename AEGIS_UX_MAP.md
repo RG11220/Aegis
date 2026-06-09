@@ -94,7 +94,7 @@ flowchart TD
 | **Sign-in** | Returning, logged out | Email/pw → loads keys ✅ | — | "Unlocking…" state on slow PBKDF2 | P1 | `app/(auth)/sign-in.tsx`, `hooks/useEmailSignIn.ts` |
 | **Unlock modal** | Authed but no keys in session | ✅ reachable app-wide now | No progress, weak wrong-pw copy, **no recover link** | Progress spinner, clear error, "Forgot password? Recover with seed phrase" link | **P1** | `components/CryptoUnlockModal.tsx` |
 | 🔒 **Key-mismatch** | Self-test fails on unlock | ✅ detected → message shown | Dead-ends on an Unlock-only modal | Dedicated state → one tap to Recover | **P1** | `CryptoUnlockModal.tsx`, `settings.tsx` |
-| 🔒 **Recover (24 words)** | Forgot pw / mismatch / new device | Route + hook exist | Hard to reach; no progress/success states | Reachable from modal + settings; validated entry; "you're back in" success | **P1** | `app/recover.tsx`, `hooks/useKeyRecovery.ts` |
+| 🔒 **Recover (24 words)** | Forgot pw / mismatch / new device | Route + hook exist | Hard to reach; no progress/success states | Reachable from modal + settings; validated entry; "you're back in" success | **P1** | `mobile/app/recover-account.tsx`, `hooks/useKeyRecovery.ts` |
 | **Chat list** | Home tab | Works | Bare loading/empty | Skeletons, unread, last-message preview | P2 | `app/(tabs)/index.tsx` |
 | **Conversation** | Open a chat | ✅ E2E works | Send gating, message states (below) | See §4 + §5 | P1 | `app/chat/[id].tsx` |
 | **Settings** | Settings tab | Has recovery entry on `keyLoadFailed` | No security section | "Security": view/re-backup phrase, this-device key status, sign-out wipes keys | P2 | `app/(tabs)/settings.tsx` |

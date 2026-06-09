@@ -9,7 +9,7 @@ const getUserFriendlyDecryptionError = (error: unknown) => {
   // Speak plainly; never surface raw crypto errors to the user.
   if (/no encrypted key|not encrypted for/i.test(message)) return "This message wasn't encrypted for your account";
   if (/signature/i.test(message)) return "Couldn't verify this message";
-  if (/missing|not loaded|no private key/i.test(message)) return "Unlock to read this message";
+  if (/missing|not loaded|no private key/i.test(message)) return "🔒 Unlock to read this message";
   if (/cipher|decrypt|decryption|pem|key/i.test(message)) return "Couldn't decrypt this message";
   return "Couldn't read this message";
 };

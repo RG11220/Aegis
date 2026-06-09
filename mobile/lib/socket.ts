@@ -286,7 +286,20 @@ export const useSocketStore = create<SocketState>((set, get) => ({
             return;
           }
 
-          if (response?.error) {
+          if (response === undefined || response === null) {
+            Sentry.logger.error("Failed to send message: no acknowledgement", {
+              chatId,
+              tempId,
+            });
+            Alert.alert("Message failed to send", "The server returned no acknowledgement. Check your connection and try again.");
+            queryClient.setQueryData<Message[]>(["messages", chatId], (old) =>
+              old?.filter((m) => m._id !== tempId) ?? []
+            );
+            reject(new Error("No server acknowledgement received"));
+            return;
+          }
+
+          if (response.error) {
             Sentry.logger.error("Failed to send message", {
               chatId,
               error: response.error,

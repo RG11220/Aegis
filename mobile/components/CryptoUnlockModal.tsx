@@ -47,7 +47,7 @@ const CryptoUnlockModal = () => {
   // Only prompt on authenticated in-app screens; never cover the auth flow
   // or the seed-phrase recovery screen (the escape hatch when you can't unlock).
   const inAuthGroup = segments[0] === "(auth)";
-  const onRecover = segments.includes("recover");
+  const onRecover = segments.includes("recover-account");
   const visible = isLoaded && !!isSignedIn && !privateKeyPem && !inAuthGroup && !onRecover;
   if (!visible) return null;
 
@@ -150,10 +150,10 @@ const CryptoUnlockModal = () => {
             </Pressable>
 
             {/* Recovery escape hatch — a forgotten password or key mismatch must not be
-                a dead end. Navigating to /recover hides this modal (see visibility guard). */}
+                a dead end. Navigating to /recover-account hides this modal (see visibility guard). */}
             {!isNewUser && (
               <Pressable
-                onPress={() => router.push("/recover")}
+                onPress={() => router.push("/recover-account")}
                 style={{ paddingVertical: 12, alignItems: "center", marginTop: 4 }}
               >
                 <Text style={{ color: "#F4A261", fontSize: 14, fontWeight: "600" }}>
