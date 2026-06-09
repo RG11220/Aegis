@@ -30,15 +30,26 @@ const ChatsTab = () => {
   }
 
   const handleChatPress = (chat: Chat) => {
-    router.push({
-      pathname: "/chat/[id]",
-      params: {
-        id: chat._id,
-        participantId: chat.participant._id,
-        name: chat.participant.name,
-        avatar: chat.participant.avatar,
-      },
-    });
+    if (chat.isGroup) {
+      router.push({
+        pathname: "/chat/[id]",
+        params: {
+          id: chat._id,
+          isGroup: "true",
+          groupName: chat.name ?? "",
+        },
+      });
+    } else {
+      router.push({
+        pathname: "/chat/[id]",
+        params: {
+          id: chat._id,
+          participantId: chat.participant!._id,
+          name: chat.participant!.name,
+          avatar: chat.participant!.avatar,
+        },
+      });
+    }
   };
 
   return (
@@ -76,12 +87,21 @@ function Header() {
     <View className="px-5 pt-2 pb-4">
       <View className="flex-row items-center justify-between">
         <Text className="text-2xl font-bold text-foreground">Chats</Text>
-        <Pressable
-          className="size-10 bg-primary rounded-full items-center justify-center"
-          onPress={() => router.push("/new-chat" as Href)}
-        >
-          <Ionicons name="create-outline" size={20} color="#0D0D0F" />
-        </Pressable>
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            className="h-10 px-3 bg-surface-card rounded-full items-center justify-center flex-row gap-1.5 border border-surface-light"
+            onPress={() => router.push("/new-group" as Href)}
+          >
+            <Ionicons name="people-outline" size={16} color="#00876F" />
+            <Text className="text-primary text-sm font-medium">Group</Text>
+          </Pressable>
+          <Pressable
+            className="size-10 bg-primary rounded-full items-center justify-center"
+            onPress={() => router.push("/new-chat" as Href)}
+          >
+            <Ionicons name="create-outline" size={20} color="#0D0D0F" />
+          </Pressable>
+        </View>
       </View>
     </View>
   );

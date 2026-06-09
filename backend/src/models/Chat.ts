@@ -1,15 +1,17 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IChat extends Document {
-    participantIds: string[]; 
+    participantIds: string[];
+    isGroup: boolean;
+    name?: string;
     lastMessage?: mongoose.Types.ObjectId;
-    lastMessageAt?: Date; 
+    lastMessageAt?: Date;
     createdAt: Date;
     updatedAt: Date;
 }
 
 const ChatSchema = new Schema<IChat>(
-    { 
+    {
         participantIds: {
             type: [String],
             required: true,
@@ -24,11 +26,13 @@ const ChatSchema = new Schema<IChat>(
                 }
             ]
         },
+        isGroup: { type: Boolean, default: false },
+        name: { type: String, default: null },
         lastMessage: { type: Schema.Types.ObjectId, ref: "Message", default: null },
         lastMessageAt: { type: Date, default: Date.now }
-    }, 
-    { 
-        timestamps: true 
+    },
+    {
+        timestamps: true
     }
 );
 

@@ -151,7 +151,14 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       if (currentChatId !== message.chat) {
         const chats = queryClient.getQueryData<Chat[]>(["chats"]);
         const chat = chats?.find((c) => c._id === message.chat);
-        if (chat?.participant && senderId === chat.participant._id) {
+        // DM: only mark unread if the other participant sent it
+        // Group: mark unread for any incoming message (we don't have currentUserId here,
+        //        but the sender will always be in the chat room when they send, so
+        //        currentChatId === message.chat will be true for our own messages)
+        const shouldMarkUnread = chat?.isGroup
+          ? true
+          : senderId === chat?.participant?._id;
+        if (shouldMarkUnread) {
           set((state) => ({
             unreadChats: new Set([...state.unreadChats, message.chat]),
           }));

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
 import { useApi } from '@/lib/axios'
 import { useCryptoSession } from '@/lib/cryptoSession'
+import { persistKeys } from '@/lib/cryptoSessionStorage'
 
 const SignUpScreen = () => {
   const { signUp, setActive, isLoaded } = useSignUp()
@@ -68,6 +69,8 @@ const SignUpScreen = () => {
           })
 
           setKeys(data.privateKey, data.publicKey)
+          // persist to the device keychain so keys survive app restarts
+          await persistKeys(email, data.privateKey, data.publicKey)
         } catch (cryptoErr: any) {
           const msg =
             cryptoErr?.response?.data?.message ?? cryptoErr?.message ?? String(cryptoErr)

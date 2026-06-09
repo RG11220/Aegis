@@ -4,7 +4,9 @@ import { useSignIn } from "@clerk/clerk-expo";
 import { useState } from "react";
 import { useApi } from "@/lib/axios";
 import { decryptPrivateKeyAsync } from "@/lib/crypto/password/Encryptprivatekey";
+import { keyPairMatches } from "@/lib/crypto/rsa/RsaSign";
 import { useCryptoSession } from "@/lib/cryptoSession";
+import { persistKeys } from "@/lib/cryptoSessionStorage";
 
 interface CryptoKeysResponse {
   publicKey: string;
@@ -59,6 +61,8 @@ function useEmailSignIn() {
               });
 
               setKeys(data.privateKey, data.publicKey);
+              // persist so the session survives app restarts
+              await persistKeys(email, data.privateKey, data.publicKey);
               return;
             }
 
@@ -72,7 +76,14 @@ function useEmailSignIn() {
                 keysResponse.keySalt,
                 password
               );
-              setKeys(privateKeyPem, keysResponse.publicKey);
+              if (!keyPairMatches(privateKeyPem, keysResponse.publicKey)) {
+                console.warn("[Crypto] key pair mismatch on sign-in — flag for recovery");
+                setKeyLoadFailed(true);
+              } else {
+                setKeys(privateKeyPem, keysResponse.publicKey);
+                // persist so the session survives app restarts
+                await persistKeys(email, privateKeyPem, keysResponse.publicKey);
+              }
             } catch (decryptErr: any) {
               console.warn("[Crypto] decrypt failed, flag for recovery:", decryptErr.message);
               setKeyLoadFailed(true);

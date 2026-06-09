@@ -9,7 +9,7 @@ const TabsLayout = () => {
   if (!isSignedIn) return <Redirect href="/(auth)" />;
 
   return (
-    <Tabs
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

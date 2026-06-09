@@ -19,46 +19,78 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useQueryClient } from "@tanstack/react-query";
-import type { Chat } from "@/types";
+import { useChats } from "@/hooks/useChats";
+import type { Chat, MessageSender } from "@/types";
+import { useCryptoSession } from "@/lib/cryptoSession";
 
 type ChatParams = {
   id: string;
-  participantId: string;
-  name: string;
-  avatar: string;
+  // DM params
+  participantId?: string;
+  name?: string;
+  avatar?: string;
+  // Group params
+  isGroup?: string;
+  groupName?: string;
 };
 
 const ChatDetailScreen = () => {
-  const { id: chatId, avatar, name, participantId } = useLocalSearchParams<ChatParams>();
+  const { id: chatId, avatar, name, participantId, isGroup: isGroupParam, groupName } =
+    useLocalSearchParams<ChatParams>();
+
+  const isGroup = isGroupParam === "true";
 
   const [messageText, setMessageText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
+  const { publicKeyPem: myPublicKeyPemFromSession } = useCryptoSession();
+  // prefer the session key (guaranteed in sync with signing key); fall back to DB value
+  const myPublicKeyPem = myPublicKeyPemFromSession ?? currentUser?.publicKey ?? null;
   const { data: messages, isLoading } = useMessages(chatId);
 
   const { joinChat, leaveChat, sendMessage, sendTyping, isConnected, onlineUsers, typingUsers } =
     useSocketStore();
 
-  const isOnline = participantId ? onlineUsers.has(participantId) : false;
-  const isTyping = typingUsers.get(chatId) === participantId;
+  // --- DM-only helpers ---
+  const isOnline = !isGroup && participantId ? onlineUsers.has(participantId) : false;
+  const isTyping = isGroup
+    ? !!typingUsers.get(chatId)
+    : typingUsers.get(chatId) === participantId;
+
+  // --- Get participants from cache (reactive — re-renders when public keys arrive) ---
+  const { data: chats } = useChats();
+  const cachedChat = useMemo(() => chats?.find((c) => c._id === chatId), [chatId, chats]);
+
+  // DM: single participant pubkey
+  const participantPublicKey = useMemo(() => {
+    if (isGroup) return null;
+    return cachedChat?.participant?.publicKey ?? null;
+  }, [isGroup, cachedChat]);
+
+  // Group: map userId → publicKey for all participants
+  const participantsKeyMap = useMemo((): Map<string, string> => {
+    if (!isGroup) return new Map();
+    const map = new Map<string, string>();
+    for (const p of cachedChat?.participants ?? []) {
+      if (p.publicKey) map.set(p._id, p.publicKey);
+    }
+    // always use the crypto-session public key for self — it's guaranteed to match the signing key
+    if (currentUser?._id && myPublicKeyPem) map.set(currentUser._id, myPublicKeyPem);
+    return map;
+  }, [isGroup, cachedChat, currentUser]);
+
+  // Group display name
+  const displayName = isGroup
+    ? (groupName || cachedChat?.name || cachedChat?.participants?.map((p) => p.name).join(", ") || "Group")
+    : (name ?? "");
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // get pubkey from cache, not route params
-  const chats = queryClient.getQueryData<Chat[]>(["chats"]);
-  const participantPublicKey = useMemo(() => {
-    const chat = chats?.find((c) => c._id === chatId);
-    return chat?.participant.publicKey ?? null;
-  }, [chatId, chats]);
 
   // join/leave socket room
   useEffect(() => {
     if (chatId && isConnected) joinChat(chatId);
-
     return () => {
       if (chatId) leaveChat(chatId);
     };
@@ -76,23 +108,14 @@ const ChatDetailScreen = () => {
   const handleTyping = useCallback(
     (text: string) => {
       setMessageText(text);
-
       if (!isConnected || !chatId) return;
 
       if (text.length > 0) {
         sendTyping(chatId, true);
-
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
-
-        typingTimeoutRef.current = setTimeout(() => {
-          sendTyping(chatId, false);
-        }, 2000);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => sendTyping(chatId, false), 2000);
       } else {
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         sendTyping(chatId, false);
       }
     },
@@ -100,35 +123,50 @@ const ChatDetailScreen = () => {
   );
 
   const handleSend = async () => {
-    if (!messageText.trim() || isSending || !isConnected || !currentUser) return;
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+    if (!messageText.trim() || isSending || !isConnected || !currentUser) {
+      console.log("[Send] blocked:", { hasText: !!messageText.trim(), isSending, isConnected, hasUser: !!currentUser });
+      return;
     }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     sendTyping(chatId, false);
 
-    const partPubKey = participantPublicKey;
-    if (!partPubKey || !participantId) {
-      Alert.alert(
-        "Can't send yet",
-        "The recipient's encryption key is not available. Please wait until the conversation is fully initialized."
-      );
-      return;
-    }
+    let recipients: { userId: string; publicKeyPem: string }[];
 
-    const recipients = [
-      { userId: currentUser._id, publicKeyPem: currentUser.publicKey },
-      { userId: participantId, publicKeyPem: partPubKey },
-    ].filter(
-      (r): r is { userId: string; publicKeyPem: string } => Boolean(r.publicKeyPem)
-    );
+    if (isGroup) {
+      // All participants (including self) must have a key slot
+      recipients = Array.from(participantsKeyMap.entries()).map(([userId, publicKeyPem]) => ({
+        userId,
+        publicKeyPem,
+      }));
 
-    if (recipients.length < 2) {
-      Alert.alert(
-        "Can't send yet",
-        "Both participants need valid encryption keys before messages can be sent."
-      );
-      return;
+      if (recipients.length < 2) {
+        Alert.alert(
+          "Can't send yet",
+          "Participant encryption keys are not yet available. Please wait."
+        );
+        return;
+      }
+    } else {
+      if (!participantPublicKey || !participantId || !myPublicKeyPem) {
+        Alert.alert(
+          "Can't send yet",
+          "Encryption keys are not yet available. Please wait."
+        );
+        return;
+      }
+      recipients = [
+        { userId: currentUser._id, publicKeyPem: myPublicKeyPem! },
+        { userId: participantId, publicKeyPem: participantPublicKey },
+      ].filter((r): r is { userId: string; publicKeyPem: string } => Boolean(r.publicKeyPem));
+
+      if (recipients.length < 2) {
+        Alert.alert(
+          "Can't send yet",
+          "Both participants need valid encryption keys before messages can be sent."
+        );
+        return;
+      }
     }
 
     setIsSending(true);
@@ -146,32 +184,60 @@ const ChatDetailScreen = () => {
         recipients
       );
       setMessageText("");
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (sendError: any) {
-      const message = sendError?.message ?? "Message failed to send.";
-      Alert.alert("Send failed", message);
+      Alert.alert("Send failed", sendError?.message ?? "Message failed to send.");
     } finally {
       setIsSending(false);
     }
   };
 
+  // Resolve sender pubkey for a given message (needed for sig verify in MessageBubble)
+  const getSenderPublicKey = (senderId: string): string | null => {
+    if (isGroup) {
+      return participantsKeyMap.get(senderId) ?? null;
+    }
+    const isFromMe = senderId === currentUser?._id;
+    const key = isFromMe ? (myPublicKeyPem ?? null) : participantPublicKey;
+    console.log(
+      "[SigDebug] senderId:", senderId,
+      "| currentUser._id:", currentUser?._id,
+      "| isFromMe:", isFromMe,
+      "| keyPrefix:", key?.slice(0, 40) ?? "NULL"
+    );
+    return key;
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-surface" edges={["top", "bottom"]}>
+      {/* header */}
       <View className="flex-row items-center px-4 py-2 bg-surface border-b border-surface-light">
         <Pressable onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#F4A261" />
         </Pressable>
         <View className="flex-row items-center flex-1 ml-2">
-          {avatar && <Image source={avatar} style={{ width: 40, height: 40, borderRadius: 999 }} />}
+          {isGroup ? (
+            <View className="w-10 h-10 rounded-full bg-surface-card items-center justify-center border border-surface-light">
+              <Ionicons name="people" size={20} color="#6B6B70" />
+            </View>
+          ) : (
+            avatar && <Image source={avatar} style={{ width: 40, height: 40, borderRadius: 999 }} />
+          )}
           <View className="ml-3">
             <Text className="text-foreground font-semibold text-base" numberOfLines={1}>
-              {name}
+              {displayName}
             </Text>
-            <Text className={`text-xs ${isTyping ? "text-primary" : "text-muted-foreground"}`}>
-              {isTyping ? "typing..." : isOnline ? "Online" : "Offline"}
-            </Text>
+            {isGroup ? (
+              <Text className={`text-xs ${isTyping ? "text-primary" : "text-muted-foreground"}`}>
+                {isTyping
+                  ? "typing..."
+                  : `${(cachedChat?.participants?.length ?? 0) + 1} members`}
+              </Text>
+            ) : (
+              <Text className={`text-xs ${isTyping ? "text-primary" : "text-muted-foreground"}`}>
+                {isTyping ? "typing..." : isOnline ? "Online" : "Offline"}
+              </Text>
+            )}
           </View>
         </View>
         <View className="flex-row items-center gap-3">
@@ -206,17 +272,11 @@ const ChatDetailScreen = () => {
             <ScrollView
               ref={scrollViewRef}
               contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}
-              onContentSizeChange={() => {
-                scrollViewRef.current?.scrollToEnd({ animated: false });
-              }}
+              onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: false })}
             >
               {messages.map((message) => {
                 const isFromMe = currentUser ? message.senderId === currentUser._id : false;
-
-                // sender pubkey for sig verify
-                const senderPublicKey = isFromMe
-                  ? (currentUser?.publicKey ?? null)
-                  : participantPublicKey;
+                const senderPublicKey = getSenderPublicKey(message.senderId);
 
                 return (
                   <MessageBubble

@@ -95,13 +95,14 @@ export const initializeSocket = (httpServer: HttpServer) => {
       encryptedKeys: Record<string, string>;
       signature: string;
       tempId?: string;
-    }) => {
+    }, ack?: (response: { error?: string; messageId?: string }) => void) => {
       try {
         const { chatId, cipherText, iv, encryptedKeys, signature, tempId } = data;
 
         // server is blind relay
         if (!chatId || !cipherText || !iv || !encryptedKeys || !signature) {
           socket.emit("socket-error", { message: "Missing required encrypted fields" });
+          ack?.({ error: "Missing required encrypted fields" });
           return;
         }
 
@@ -112,12 +113,14 @@ export const initializeSocket = (httpServer: HttpServer) => {
 
         if (!chat) {
           socket.emit("socket-error", { message: "Chat not found" });
+          ack?.({ error: "Chat not found" });
           return;
         }
 
         // sender must have own key slot
         if (!encryptedKeys[userId]) {
           socket.emit("socket-error", { message: "Sender key slot missing from encryptedKeys" });
+          ack?.({ error: "Sender key slot missing from encryptedKeys" });
           return;
         }
 
@@ -147,6 +150,11 @@ export const initializeSocket = (httpServer: HttpServer) => {
           originalTempId: tempId,
         };
 
+        // Resolve the sender's send() promise via the Socket.IO ack callback so the
+        // send button stops spinning and the input clears. The server was only emitting
+        // a separate "message-ack" event and never calling this ack — so the client's
+        // awaited promise hung forever even though the message was delivered.
+        ack?.({ messageId: String(message._id) });
         socket.emit("message-ack", { tempId, messageId: message._id, chatId });
 
         const chatRoom = io.sockets.adapter.rooms.get(`chat:${chatId}`);
@@ -167,6 +175,7 @@ export const initializeSocket = (httpServer: HttpServer) => {
         }
       } catch {
         socket.emit("socket-error", { message: "Failed to send message" });
+        ack?.({ error: "Failed to send message" });
       }
     });
 

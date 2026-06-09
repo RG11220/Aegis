@@ -81,3 +81,15 @@ export function rsaVerify(
     return false;
   }
 }
+
+// Self-test: confirm a private key actually corresponds to a public key by
+// signing a fixed probe and verifying it. Catches stored pub/priv drifting out
+// of sync — the silent root cause of "Invalid signature" on every message.
+export function keyPairMatches(privateKeyPem: string, publicKeyPem: string): boolean {
+  try {
+    const probe = "aegis-keypair-selftest";
+    return rsaVerify(publicKeyPem, probe, rsaSign(privateKeyPem, probe));
+  } catch {
+    return false;
+  }
+}

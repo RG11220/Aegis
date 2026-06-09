@@ -43,7 +43,12 @@ export interface ChatLastMessage {
 
 export interface Chat {
   _id: string;
-  participant: MessageSender;
+  isGroup: boolean;
+  // DM only
+  participant?: MessageSender;
+  // Group only
+  name?: string;
+  participants?: MessageSender[];
   lastMessage: ChatLastMessage | null;
   lastMessageAt: string;
   createdAt: string;

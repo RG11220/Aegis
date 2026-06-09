@@ -8,6 +8,7 @@ import { API_URL } from "@/lib/config";
 import { generateRSAKeyPairFromSeed, generateSeedPhrase } from "@/lib/crypto/rsa/RsaFromSeed";
 import { encryptPrivateKey } from "@/lib/crypto/password/Encryptprivatekey";
 import { useCryptoSession } from "@/lib/cryptoSession";
+import { persistKeys } from "@/lib/cryptoSessionStorage";
 
 function useEmailSignUp() {
   const { signUp, setActive, isLoaded } = useSignUp();
@@ -91,6 +92,8 @@ function useEmailSignUp() {
           });
 
           setKeys(privateKeyPem, publicKeyPem);
+          // persist so the session survives app restarts
+          await persistKeys(email, privateKeyPem, publicKeyPem);
         } catch (cryptoErr) {
           console.error("[Crypto] Failed to set up keys after sign-up:", cryptoErr);
         } finally {

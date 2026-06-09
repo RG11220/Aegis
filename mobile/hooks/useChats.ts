@@ -32,3 +32,22 @@ export const useGetOrCreateChat = () => {
     },
   });
 };
+
+export const useCreateGroupChat = () => {
+  const { apiWithAuth } = useApi();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ participantIds, name }: { participantIds: string[]; name?: string }) => {
+      const { data } = await apiWithAuth<Chat>({
+        method: "POST",
+        url: "/chats/group",
+        data: { participantIds, name },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
+    },
+  });
+};

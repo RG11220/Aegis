@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ClerkProvider } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import AuthSync from "@/components/AuthSync";
+import CryptoUnlockModal from "@/components/CryptoUnlockModal";
 import { StatusBar } from "expo-status-bar";
 import { LogBox } from "react-native";
 import * as Sentry from '@sentry/react-native';
@@ -48,6 +49,7 @@ export default Sentry.wrap(function RootLayout() {
           <Stack.Screen name="new-chat" options={{ animation: 'slide_from_bottom', presentation: 'modal', gestureEnabled: true }} />
           <Stack.Screen name="recover"  options={{ animation: 'slide_from_bottom', presentation: 'modal', gestureEnabled: true }} />
         </Stack>
+        <CryptoUnlockModal />
       </QueryClientProvider>
     </ClerkProvider>
   );

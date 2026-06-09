@@ -15,7 +15,8 @@ function encodeLength(len: number): Uint8Array {
 }
 
 function derInteger(value: bigint): Uint8Array {
-  const hex   = value.toString(16).padStart(2, "0");
+  let hex     = value.toString(16);
+  if (hex.length % 2) hex = "0" + hex; // even-length; padStart(2) dropped a nibble on odd-length values like e=65537 (0x10001 -> 0x1000)
   let bytes   = new Uint8Array(hex.match(/../g)!.map((b) => parseInt(b, 16)));
   if (bytes[0]! & 0x80) bytes = new Uint8Array([0x00, ...bytes]); // sign byte
   return new Uint8Array([0x02, ...encodeLength(bytes.length), ...bytes]);

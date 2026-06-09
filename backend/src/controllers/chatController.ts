@@ -16,23 +16,43 @@ export async function getChats(req: AuthRequest, res: Response, next: NextFuncti
       .populate("lastMessage")
       .sort({ lastMessageAt: -1 });
 
-    // For each chat, fetch the other participant's info from SQL
     const formattedChats = await Promise.all(
       chats.map(async (chat) => {
-        const otherUserId = chat.participantIds.find((id) => id !== userId);
+        if (chat.isGroup) {
+          // Group: fetch all other participants' info
+          const otherIds = chat.participantIds.filter((id) => id !== userId);
+          const placeholders = otherIds.map(() => "?").join(", ");
+          const [rows] = await execute(
+            `SELECT userID, userName, userEmail, profilePicture, publicKey FROM Users WHERE userID IN (${placeholders})`,
+            otherIds
+          ) as [UserRow[], unknown];
 
-        const [rows] = await execute(
-          "SELECT userID, userName, userEmail, profilePicture, publicKey FROM Users WHERE userID = ? LIMIT 1",
-          [otherUserId]
-        ) as [UserRow[], unknown];
+          return {
+            _id: chat._id,
+            isGroup: true,
+            name: chat.name,
+            participants: rows.map(mapUser),
+            lastMessage: chat.lastMessage,
+            lastMessageAt: chat.lastMessageAt,
+            createdAt: chat.createdAt,
+          };
+        } else {
+          // DM: single other participant
+          const otherUserId = chat.participantIds.find((id) => id !== userId);
+          const [rows] = await execute(
+            "SELECT userID, userName, userEmail, profilePicture, publicKey FROM Users WHERE userID = ? LIMIT 1",
+            [otherUserId]
+          ) as [UserRow[], unknown];
 
-        return {
-          _id: chat._id,
-          participant: rows[0] ? mapUser(rows[0]) : null,
-          lastMessage: chat.lastMessage,
-          lastMessageAt: chat.lastMessageAt,
-          createdAt: chat.createdAt,
-        };
+          return {
+            _id: chat._id,
+            isGroup: false,
+            participant: rows[0] ? mapUser(rows[0]) : null,
+            lastMessage: chat.lastMessage,
+            lastMessageAt: chat.lastMessageAt,
+            createdAt: chat.createdAt,
+          };
+        }
       })
     );
 
@@ -45,6 +65,53 @@ export async function getChats(req: AuthRequest, res: Response, next: NextFuncti
 
 
 
+
+export async function createGroupChat(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.userId!;
+    const { participantIds, name }: { participantIds: string[]; name?: string } = req.body;
+
+    if (!Array.isArray(participantIds) || participantIds.length < 2) {
+      res.status(400).json({ message: "A group requires at least 2 other participants" });
+      return;
+    }
+
+    const allIds = Array.from(new Set([userId, ...participantIds.map(String)]));
+
+    // Verify all participants exist
+    const placeholders = allIds.map(() => "?").join(", ");
+    const [rows] = await execute(
+      `SELECT userID, userName, userEmail, profilePicture, publicKey FROM Users WHERE userID IN (${placeholders})`,
+      allIds
+    ) as [UserRow[], unknown];
+
+    if (rows.length !== allIds.length) {
+      res.status(404).json({ message: "One or more users not found" });
+      return;
+    }
+
+    const chat = await Chat.create({
+      participantIds: allIds,
+      isGroup: true,
+      name: name?.trim() || null,
+    });
+
+    const otherRows = rows.filter((r) => String(r.userID) !== String(userId));
+
+    res.status(201).json({
+      _id: chat._id,
+      isGroup: true,
+      name: chat.name,
+      participants: otherRows.map(mapUser),
+      lastMessage: null,
+      lastMessageAt: chat.lastMessageAt,
+      createdAt: chat.createdAt,
+    });
+  } catch (error) {
+    res.status(500);
+    next(error);
+  }
+}
 
 export async function getOrCreateChat(req: AuthRequest, res: Response, next: NextFunction) {
   try {
