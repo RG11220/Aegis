@@ -17,12 +17,13 @@ import { useCryptoUnlock } from "@/hooks/useCryptoUnlock";
 import { useCryptoSession } from "@/lib/cryptoSession";
 import { useApi } from "@/lib/axios";
 import { useAuth } from "@clerk/clerk-expo";
-import { useSegments } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 
 const CryptoUnlockModal = () => {
   const privateKeyPem = useCryptoSession((s) => s.privateKeyPem);
   const { isSignedIn, isLoaded } = useAuth();
   const segments = useSegments();
+  const router = useRouter();
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -147,6 +148,19 @@ const CryptoUnlockModal = () => {
                 </Text>
               )}
             </Pressable>
+
+            {/* Recovery escape hatch — a forgotten password or key mismatch must not be
+                a dead end. Navigating to /recover hides this modal (see visibility guard). */}
+            {!isNewUser && (
+              <Pressable
+                onPress={() => router.push("/recover")}
+                style={{ paddingVertical: 12, alignItems: "center", marginTop: 4 }}
+              >
+                <Text style={{ color: "#F4A261", fontSize: 14, fontWeight: "600" }}>
+                  Forgot password? Recover with seed phrase
+                </Text>
+              </Pressable>
+            )}
 
             {hasExistingKeys === null && (
               <Text style={{ color: "#6B6B70", fontSize: 12, textAlign: "center", marginTop: 12 }}>

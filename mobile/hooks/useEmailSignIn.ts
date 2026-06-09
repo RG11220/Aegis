@@ -19,6 +19,7 @@ function useEmailSignIn() {
   const { apiWithAuth } = useApi();
   const setKeys          = useCryptoSession((s) => s.setKeys);
   const setKeyLoadFailed = useCryptoSession((s) => s.setKeyLoadFailed);
+  const setPendingSeedPhrase = useCryptoSession((s) => s.setPendingSeedPhrase);
   const [loading, setLoading] = useState(false);
 
   const handleEmailSignIn = async (
@@ -54,7 +55,7 @@ function useEmailSignIn() {
               // no keys yet, provision server-side
               console.log("[Crypto] No keys found — provisioning via server");
 
-              const { data } = await apiWithAuth<{ publicKey: string; privateKey: string }>({
+              const { data } = await apiWithAuth<{ publicKey: string; privateKey: string; seedPhrase?: string[] }>({
                 method: "POST",
                 url: "/auth/provision-keys",
                 data: { password },
@@ -63,6 +64,8 @@ function useEmailSignIn() {
               setKeys(data.privateKey, data.publicKey);
               // persist so the session survives app restarts
               await persistKeys(email, data.privateKey, data.publicKey);
+              // show the recovery phrase once so the user can back it up
+              if (data.seedPhrase?.length) setPendingSeedPhrase(data.seedPhrase);
               return;
             }
 

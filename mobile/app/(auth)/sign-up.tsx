@@ -13,6 +13,7 @@ const SignUpScreen = () => {
   const router = useRouter()
   const { apiWithAuth } = useApi()
   const setKeys = useCryptoSession((s) => s.setKeys)
+  const setPendingSeedPhrase = useCryptoSession((s) => s.setPendingSeedPhrase)
 
   // uses server-side key provisioning (on-device RSA too slow)
 
@@ -62,7 +63,7 @@ const SignUpScreen = () => {
           // ensure user row exists before provisioning
           await apiWithAuth({ method: 'POST', url: '/auth/callback' })
 
-          const { data } = await apiWithAuth<{ publicKey: string; privateKey: string }>({
+          const { data } = await apiWithAuth<{ publicKey: string; privateKey: string; seedPhrase?: string[] }>({
             method: 'POST',
             url: '/auth/provision-keys',
             data: { password },
@@ -71,6 +72,8 @@ const SignUpScreen = () => {
           setKeys(data.privateKey, data.publicKey)
           // persist to the device keychain so keys survive app restarts
           await persistKeys(email, data.privateKey, data.publicKey)
+          // show the recovery phrase once so the user can back it up
+          if (data.seedPhrase?.length) setPendingSeedPhrase(data.seedPhrase)
         } catch (cryptoErr: any) {
           const msg =
             cryptoErr?.response?.data?.message ?? cryptoErr?.message ?? String(cryptoErr)

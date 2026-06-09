@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { useApi } from "@/lib/axios";
+import { useUser } from "@clerk/clerk-expo";
 import { generateRSAKeyPairFromSeed } from "@/lib/crypto/rsa/RsaFromSeed";
 import { encryptPrivateKey } from "@/lib/crypto/password/Encryptprivatekey";
 import { useCryptoSession } from "@/lib/cryptoSession";
+import { persistKeys } from "@/lib/cryptoSessionStorage";
 
 function useKeyRecovery() {
   const { apiWithAuth } = useApi();
+  const { user } = useUser();
   const setKeys = useCryptoSession((s) => s.setKeys);
   const [loading, setLoading] = useState(false);
 
@@ -35,6 +38,8 @@ function useKeyRecovery() {
       });
 
       setKeys(privateKeyPem, publicKeyPem);
+      const email = user?.primaryEmailAddress?.emailAddress;
+      if (email) await persistKeys(email, privateKeyPem, publicKeyPem);
 
       return undefined;
     } catch (err: any) {
